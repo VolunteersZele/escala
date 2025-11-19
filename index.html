@@ -16,16 +16,17 @@
         import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
         import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
         
-        // Configuração do Firebase (usar suas credenciais)
+        // Your web app's Firebase configuration
         const firebaseConfig = {
-            apiKey: "AIzaSyA2j9f-qaqCqjxVaYON-oJ3Q06_XG0mjMw",
-            authDomain: "evomynd.firebaseapp.com",
-            projectId: "evomynd",
-            storageBucket: "evomynd.firebasestorage.app",
-            messagingSenderId: "267903971507",
-            appId: "1:267903971507:web:e85f8a9795dfa5056740c6"
+            apiKey: "AIzaSyBGMYUmA0hJs1v2IlU-fdFDucYFp6LZaCg",
+            authDomain: "z-ele-church-escalas.firebaseapp.com",
+            projectId: "z-ele-church-escalas",
+            storageBucket: "z-ele-church-escalas.firebasestorage.app",
+            messagingSenderId: "473523773124",
+            appId: "1:473523773124:web:9c57a51236a5a8fabc3391"
         };
         
+        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
