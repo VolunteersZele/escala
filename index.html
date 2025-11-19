@@ -140,6 +140,20 @@
         .blink-border {
             animation: blink-border 0.5s ease-in-out 3;
         }
+        @keyframes pulse-team {
+            0%, 100% { box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2); }
+            50% { box-shadow: 0 0 0 4px #377db8, 0 4px 6px rgba(0, 0, 0, 0.3); }
+        }
+        .pulse-team {
+            animation: pulse-team 0.4s ease-in-out 1;
+        }
+        @keyframes pulse-save {
+            0%, 100% { box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2); }
+            50% { box-shadow: 0 0 0 4px #377db8, 0 4px 6px rgba(0, 0, 0, 0.3); }
+        }
+        .pulse-save {
+            animation: pulse-save 0.5s ease-in-out 3;
+        }
     </style>
 </head>
 <body style="background-color: #cdc8c0;">
@@ -580,6 +594,14 @@
                     }
                     
                     selectedTeam = btn.dataset.team;
+                    
+                    // Animar botão Salvar Escala após selecionar o time
+                    setTimeout(() => {
+                        elements.saveEscalaBtn.classList.add('pulse-save');
+                        setTimeout(() => {
+                            elements.saveEscalaBtn.classList.remove('pulse-save');
+                        }, 1500); // 3 piscadas x 0.5s = 1.5s
+                    }, 200); // pequeno delay para o usuário perceber a transição
                 });
             });
 
@@ -597,7 +619,30 @@
                     });
                     selectedTeam = null;
                 }
+                
+                // Se uma data foi selecionada, animar os botões dos times em sequência
+                if (elements.cultoSelect.value) {
+                    animateTeamButtonsSequence();
+                }
             });
+            
+            // Função para animar botões dos times em sequência (horário)
+            function animateTeamButtonsSequence() {
+                const teamOrder = ['welcome', 'backstage', 'parking', 'kids'];
+                const delay = 400; // tempo de cada animação em ms
+                
+                teamOrder.forEach((teamName, index) => {
+                    setTimeout(() => {
+                        const btn = document.querySelector(`[data-team="${teamName}"]`);
+                        if (btn) {
+                            btn.classList.add('pulse-team');
+                            setTimeout(() => {
+                                btn.classList.remove('pulse-team');
+                            }, 400);
+                        }
+                    }, index * delay);
+                });
+            }
 
             // Login com Google
             async function loginWithGoogle() {
