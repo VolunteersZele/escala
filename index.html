@@ -382,6 +382,41 @@
                 </div>
             </div>
 
+            <!-- Painel de Administração (apenas para admins) -->
+            <div id="admin-panel" class="card-float rounded-xl p-6 mt-8" style="display: none;">
+                <h2 class="text-2xl font-bold mb-6" style="color: #151b29;">⚙️ Painel de Administração</h2>
+                
+                <!-- Adicionar Nova Data -->
+                <div class="mb-6 p-4 bg-blue-50 rounded-lg border-2" style="border-color: #377db8;">
+                    <h3 class="font-bold text-lg mb-4" style="color: #151b29;">➕ Adicionar Nova Data</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label class="block text-sm font-semibold mb-1" style="color: #151b29;">Data</label>
+                            <input type="date" id="admin-new-date" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold mb-1" style="color: #151b29;">Horário</label>
+                            <input type="time" id="admin-new-time" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="block text-sm font-semibold mb-1" style="color: #151b29;">Nome do Evento (opcional)</label>
+                        <input type="text" id="admin-new-event" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="Ex: Culto de Domingo, Quinta do Encontro, etc.">
+                    </div>
+                    <button id="admin-add-date-btn" class="w-full zele-btn text-white font-bold py-3 px-6 rounded-lg">
+                        ➕ Adicionar Data
+                    </button>
+                </div>
+
+                <!-- Gerenciar Datas Existentes -->
+                <div class="p-4 bg-gray-50 rounded-lg border-2 border-gray-300">
+                    <h3 class="font-bold text-lg mb-4" style="color: #151b29;">📋 Gerenciar Datas Cadastradas</h3>
+                    <div id="admin-dates-list" class="space-y-2">
+                        <!-- Lista de datas será inserida aqui -->
+                    </div>
+                </div>
+            </div>
+
         </main>
     </div>
 
@@ -476,6 +511,8 @@
             
             let currentUser = null;
             let selectedTeam = null;
+            let isAdmin = false;
+            let availableDates = [];
             
             // Pré-carregar todas as imagens dos times
             const preloadedImages = {};
@@ -737,17 +774,20 @@
             // Login com Google
             async function loginWithGoogle() {
                 try {
+                    showLoading(); // Mostrar loading durante o login
                     console.log('🔐 Iniciando login...');
                     console.log('Auth:', window.firebaseAuth);
                     console.log('Provider:', window.firebaseProvider);
                     const result = await window.firebaseAuthMethods.signInWithPopup(window.firebaseAuth, window.firebaseProvider);
                     currentUser = result.user;
                     console.log('✅ Login bem-sucedido:', currentUser.email);
+                    // O onAuthStateChanged vai cuidar de mostrar o app
                 } catch (error) {
                     console.error('❌ Erro no login:', error);
                     console.error('Código do erro:', error.code);
                     console.error('Mensagem:', error.message);
-                    alert(`Erro ao fazer login: ${error.message}\n\nVerifique:\n1. Autenticação Google habilitada no Firebase\n2. Domínio autorizado no Firebase Console\n3. Conexão com internet`);
+                    showLogin(); // Voltar para login em caso de erro
+                    showModal(`Erro ao fazer login: ${error.message}\n\nVerifique:\n1. Autenticação Google habilitada no Firebase\n2. Domínio autorizado no Firebase Console\n3. Conexão com internet`);
                 }
             }
 
@@ -763,13 +803,39 @@
                 }
             }
 
+            // Verificar se usuário é admin
+            async function checkAdminStatus(user) {
+                if (!user) return false;
+                
+                try {
+                    const { doc, getDoc } = window.firestoreMethods;
+                    const userDoc = await getDoc(doc(window.firebaseDb, 'users', user.uid));
+                    
+                    if (userDoc.exists() && userDoc.data().role === 'admin') {
+                        isAdmin = true;
+                        document.getElementById('admin-panel').style.display = 'block';
+                        console.log('✅ Usuário é administrador');
+                        return true;
+                    } else {
+                        isAdmin = false;
+                        document.getElementById('admin-panel').style.display = 'none';
+                        return false;
+                    }
+                } catch (error) {
+                    console.error('❌ Erro ao verificar admin:', error);
+                    isAdmin = false;
+                    return false;
+                }
+            }
+
             // Atualizar UI do usuário
             function updateUserUI(user) {
                 if (user) {
-                    elements.userName.textContent = user.displayName || 'Usuário';
+                    const displayName = user.displayName || 'Usuário';
+                    elements.userName.textContent = isAdmin ? `${displayName} 👑` : displayName;
                     elements.userEmail.textContent = user.email;
                     elements.userPhoto.src = user.photoURL || '';
-                    elements.menuUserName.textContent = user.displayName || 'Usuário';
+                    elements.menuUserName.textContent = isAdmin ? `${displayName} 👑` : displayName;
                     elements.menuUserEmail.textContent = user.email;
                     elements.menuUserPhoto.src = user.photoURL || '';
                 }
@@ -786,6 +852,13 @@
             function showLogin() {
                 elements.loadingScreen.style.display = 'none';
                 elements.authScreen.classList.remove('hidden');
+                elements.appContainer.classList.add('hidden');
+            }
+
+            // Mostrar tela de loading
+            function showLoading() {
+                elements.loadingScreen.style.display = 'flex';
+                elements.authScreen.style.display = 'none';
                 elements.appContainer.classList.add('hidden');
             }
 
@@ -1004,28 +1077,53 @@
                 }
             });
 
+            // Carregar datas disponíveis do Firestore
+            async function loadAvailableDates() {
+                try {
+                    const { doc, getDoc } = window.firestoreMethods;
+                    const datesDoc = await getDoc(doc(window.firebaseDb, 'config', 'availableDates'));
+                    
+                    if (datesDoc.exists()) {
+                        availableDates = datesDoc.data().dates || [];
+                    } else {
+                        // Datas padrão iniciais
+                        availableDates = [
+                            { value: "2025-11-20|19:00|Quinta", text: "20/11 Quinta (chegar 19h)" },
+                            { value: "2025-11-23|09:00|Domingo", text: "23/11 Domingo (chegar 09h)" },
+                            { value: "2025-11-27|19:00|Quinta", text: "27/11 Quinta (chegar 19h)" },
+                            { value: "2025-11-30|09:00|Domingo", text: "30/11 Domingo (chegar 09h)" },
+                            { value: "2025-12-04|19:00|Quinta", text: "04/12 Quinta (chegar 19h)" },
+                            { value: "2025-12-07|09:00|Domingo", text: "07/12 Domingo (chegar 09h)" },
+                            { value: "2025-12-11|19:00|Quinta - Pré Inauguração", text: "11/12 Quinta | Pré Inauguração (chegar 19h)" },
+                            { value: "2025-12-12|19:00|Sexta - Ensaio Geral", text: "12/12 Sexta | Ensaio Geral (chegar 19h)" },
+                            { value: "2025-12-13|00:00|Sábado - Inauguração", text: "13/12 Sábado | Inauguração (horário a definir)" },
+                            { value: "2025-12-14|09:00|Domingo - Batismo", text: "14/12 Domingo | Batismo (chegar 9h)" },
+                            { value: "2025-12-18|19:00|Quinta do Encontro", text: "18/12 Quinta do Encontro (chegar 19h)" },
+                            { value: "2025-12-21|09:00|Domingo", text: "21/12 Culto de Domingo (chegar 09h)" },
+                            { value: "2025-12-25|19:00|Quinta - Natal", text: "25/12 Quinta (chegar 19h)" },
+                            { value: "2025-12-28|09:00|Domingo", text: "28/12 Domingo (chegar 09h)" },
+                            { value: "2025-12-31|00:00|Culto da Virada", text: "31/12 Culto da Virada (horário a definir)" }
+                        ];
+                        
+                        // Salvar datas padrão no Firestore
+                        const { setDoc } = window.firestoreMethods;
+                        await setDoc(doc(window.firebaseDb, 'config', 'availableDates'), { dates: availableDates });
+                    }
+                    
+                    console.log('✅ Datas carregadas:', availableDates.length);
+                    
+                    // Renderizar lista de datas para admin
+                    if (isAdmin) {
+                        renderAdminDatesList();
+                    }
+                } catch (error) {
+                    console.error('❌ Erro ao carregar datas:', error);
+                }
+            }
+
             // Atualizar dropdown removendo datas já escaladas
             function updateCultoDropdown(escalas) {
-                // Obter todas as opções do select
                 const select = elements.cultoSelect;
-                const allOptions = [
-                    { value: "", text: "Escolha uma data..." },
-                    { value: "2025-11-20|19:00|Quinta", text: "20/11 Quinta (chegar 19h)" },
-                    { value: "2025-11-23|09:00|Domingo", text: "23/11 Domingo (chegar 09h)" },
-                    { value: "2025-11-27|19:00|Quinta", text: "27/11 Quinta (chegar 19h)" },
-                    { value: "2025-11-30|09:00|Domingo", text: "30/11 Domingo (chegar 09h)" },
-                    { value: "2025-12-04|19:00|Quinta", text: "04/12 Quinta (chegar 19h)" },
-                    { value: "2025-12-07|09:00|Domingo", text: "07/12 Domingo (chegar 09h)" },
-                    { value: "2025-12-11|19:00|Quinta - Pré Inauguração", text: "11/12 Quinta | Pré Inauguração (chegar 19h)" },
-                    { value: "2025-12-12|19:00|Sexta - Ensaio Geral", text: "12/12 Sexta | Ensaio Geral (chegar 19h)" },
-                    { value: "2025-12-13|00:00|Sábado - Inauguração", text: "13/12 Sábado | Inauguração (horário a definir)" },
-                    { value: "2025-12-14|09:00|Domingo - Batismo", text: "14/12 Domingo | Batismo (chegar 9h)" },
-                    { value: "2025-12-18|19:00|Quinta do Encontro", text: "18/12 Quinta do Encontro (chegar 19h)" },
-                    { value: "2025-12-21|09:00|Domingo", text: "21/12 Culto de Domingo (chegar 09h)" },
-                    { value: "2025-12-25|19:00|Quinta - Natal", text: "25/12 Quinta (chegar 19h)" },
-                    { value: "2025-12-28|09:00|Domingo", text: "28/12 Domingo (chegar 09h)" },
-                    { value: "2025-12-31|00:00|Culto da Virada", text: "31/12 Culto da Virada (horário a definir)" }
-                ];
 
                 // Criar set com datas já escaladas
                 const escaladasDates = new Set(escalas.map(e => e.date));
@@ -1033,9 +1131,16 @@
                 // Limpar select
                 select.innerHTML = '';
 
+                // Adicionar opção padrão
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = 'Escolha uma data...';
+                select.appendChild(defaultOption);
+
                 // Adicionar apenas opções não escaladas
-                allOptions.forEach(option => {
-                    if (option.value === "" || !escaladasDates.has(option.value.split('|')[0])) {
+                availableDates.forEach(option => {
+                    const dateValue = option.value.split('|')[0];
+                    if (!escaladasDates.has(dateValue)) {
                         const optionElement = document.createElement('option');
                         optionElement.value = option.value;
                         optionElement.textContent = option.text;
@@ -1072,6 +1177,9 @@
                     const dateStr = dateObj.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
                     const timeStr = escala.time;
                     const eventNameDisplay = escala.eventName ? ` - ${escala.eventName}` : '';
+                    
+                    // Mostrar botão de deletar apenas se for a própria escala do usuário
+                    const canDelete = escala.userId === currentUser.uid;
 
                     return `
                         <div class="border-l-4 ${config.color} ${config.bg} p-4 rounded-lg">
@@ -1084,11 +1192,13 @@
                                         <p class="text-sm text-gray-600">🕐 ${timeStr}</p>
                                     </div>
                                 </div>
+                                ${canDelete ? `
                                 <button class="delete-escala-btn text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition" data-escala-id="${escala.id}" title="Deletar escala">
                                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                                     </svg>
                                 </button>
+                                ` : ''}
                             </div>
                         </div>
                     `;
@@ -1096,7 +1206,7 @@
 
                 elements.escalasList.innerHTML = html;
 
-                // Event listeners para deletar
+                // Event listeners para deletar (apenas escalas próprias)
                 document.querySelectorAll('.delete-escala-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         const escalaId = e.currentTarget.dataset.escalaId;
@@ -1198,6 +1308,123 @@
                 }
             }
 
+            // Renderizar lista de datas para admin
+            function renderAdminDatesList() {
+                const datesList = document.getElementById('admin-dates-list');
+                
+                if (availableDates.length === 0) {
+                    datesList.innerHTML = '<p class="text-gray-500 text-sm">Nenhuma data cadastrada.</p>';
+                    return;
+                }
+                
+                // Ordenar datas
+                const sortedDates = [...availableDates].sort((a, b) => {
+                    const dateA = a.value.split('|')[0];
+                    const dateB = b.value.split('|')[0];
+                    return dateA.localeCompare(dateB);
+                });
+                
+                const html = sortedDates.map((date, index) => {
+                    return `
+                        <div class="flex items-center justify-between bg-white p-3 rounded border border-gray-200">
+                            <span class="text-sm">${date.text}</span>
+                            <button class="admin-delete-date text-red-600 hover:text-red-800 text-sm font-semibold" data-index="${index}">
+                                🗑️ Remover
+                            </button>
+                        </div>
+                    `;
+                }).join('');
+                
+                datesList.innerHTML = html;
+                
+                // Event listeners para deletar data
+                document.querySelectorAll('.admin-delete-date').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const index = parseInt(e.currentTarget.dataset.index);
+                        const date = availableDates[index];
+                        showModal(
+                            `Deseja remover a data "${date.text}"? Isso não afetará escalas já criadas.`,
+                            true,
+                            () => deleteDate(index),
+                            true
+                        );
+                    });
+                });
+            }
+
+            // Adicionar nova data (apenas admin)
+            async function addNewDate() {
+                const dateInput = document.getElementById('admin-new-date').value;
+                const timeInput = document.getElementById('admin-new-time').value;
+                const eventInput = document.getElementById('admin-new-event').value.trim();
+                
+                if (!dateInput || !timeInput) {
+                    showModal('Por favor, preencha a data e horário!');
+                    return;
+                }
+                
+                // Formatar data para exibição (dd/mm)
+                const dateObj = new Date(dateInput + 'T12:00:00');
+                const day = String(dateObj.getDate()).padStart(2, '0');
+                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const weekday = dateObj.toLocaleDateString('pt-BR', { weekday: 'long' });
+                const weekdayCapitalized = weekday.charAt(0).toUpperCase() + weekday.slice(1, 3);
+                
+                // Montar valor e texto
+                const eventSuffix = eventInput ? ` - ${eventInput}` : '';
+                const value = `${dateInput}|${timeInput}|${weekdayCapitalized}${eventSuffix}`;
+                const text = `${day}/${month} ${weekdayCapitalized}${eventInput ? ' | ' + eventInput : ''} (chegar ${timeInput})`;
+                
+                // Verificar se já existe
+                const exists = availableDates.some(d => d.value === value);
+                if (exists) {
+                    showModal('Esta data já está cadastrada!');
+                    return;
+                }
+                
+                // Adicionar à lista
+                availableDates.push({ value, text });
+                
+                // Salvar no Firestore
+                try {
+                    const { doc, setDoc } = window.firestoreMethods;
+                    await setDoc(doc(window.firebaseDb, 'config', 'availableDates'), { dates: availableDates });
+                    
+                    showModal('Data adicionada com sucesso!');
+                    
+                    // Limpar campos
+                    document.getElementById('admin-new-date').value = '';
+                    document.getElementById('admin-new-time').value = '';
+                    document.getElementById('admin-new-event').value = '';
+                    
+                    // Atualizar lista
+                    renderAdminDatesList();
+                    loadUserEscalas(); // Atualizar dropdown
+                    
+                } catch (error) {
+                    console.error('❌ Erro ao salvar data:', error);
+                    showModal('Erro ao adicionar data. Tente novamente.');
+                }
+            }
+
+            // Deletar data (apenas admin)
+            async function deleteDate(index) {
+                try {
+                    availableDates.splice(index, 1);
+                    
+                    const { doc, setDoc } = window.firestoreMethods;
+                    await setDoc(doc(window.firebaseDb, 'config', 'availableDates'), { dates: availableDates });
+                    
+                    showModal('Data removida com sucesso!');
+                    renderAdminDatesList();
+                    loadUserEscalas(); // Atualizar dropdown
+                    
+                } catch (error) {
+                    console.error('❌ Erro ao deletar data:', error);
+                    showModal('Erro ao remover data. Tente novamente.');
+                }
+            }
+
             // Renderizar visão admin
             function renderAdminView(grouped) {
                 const dates = Object.keys(grouped).sort();
@@ -1213,6 +1440,26 @@
                     const dateStr = dateObj.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
                     const eventName = data.eventName ? ` - ${data.eventName}` : '';
 
+                    // Função para renderizar voluntários com botão de deletar (apenas para admins)
+                    const renderVolunteers = (volunteers, teamName) => {
+                        if (volunteers.length === 0) {
+                            return '<div class="text-gray-400">Ninguém escalado</div>';
+                        }
+                        
+                        return volunteers.map(v => `
+                            <div class="flex items-center justify-between group">
+                                <span>• ${v.userName}</span>
+                                ${isAdmin ? `
+                                <button class="admin-delete-escala opacity-0 group-hover:opacity-100 transition text-red-600 hover:text-red-800 text-xs" 
+                                        data-escala-id="${v.id}" 
+                                        title="Remover ${v.userName}">
+                                    🗑️
+                                </button>
+                                ` : ''}
+                            </div>
+                        `).join('');
+                    };
+
                     return `
                         <div class="border border-gray-200 rounded-lg p-4" style="border: 2px solid #e5e5e5; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);">
                             <h3 class="font-bold text-lg mb-3" style="color: #151b29;">📅 ${dateStr}${eventName} - 🕐 ${data.time}</h3>
@@ -1220,25 +1467,25 @@
                                 <div class="bg-gray-50 p-3 rounded border-l-4" style="border-color: #151b29;">
                                     <h4 class="font-semibold mb-2" style="color: #151b29;">Welcome (${data.welcome.length})</h4>
                                     <div class="text-sm space-y-1">
-                                        ${data.welcome.map(v => `<div>• ${v.userName}</div>`).join('') || '<div class="text-gray-400">Ninguém escalado</div>'}
+                                        ${renderVolunteers(data.welcome, 'Welcome')}
                                     </div>
                                 </div>
                                 <div class="bg-gray-50 p-3 rounded border-l-4" style="border-color: #151b29;">
                                     <h4 class="font-semibold mb-2" style="color: #151b29;">Backstage (${data.backstage.length})</h4>
                                     <div class="text-sm space-y-1">
-                                        ${data.backstage.map(v => `<div>• ${v.userName}</div>`).join('') || '<div class="text-gray-400">Ninguém escalado</div>'}
+                                        ${renderVolunteers(data.backstage, 'Backstage')}
                                     </div>
                                 </div>
                                 <div class="bg-gray-50 p-3 rounded border-l-4" style="border-color: #151b29;">
                                     <h4 class="font-semibold mb-2" style="color: #151b29;">Parking (${data.parking.length})</h4>
                                     <div class="text-sm space-y-1">
-                                        ${data.parking.map(v => `<div>• ${v.userName}</div>`).join('') || '<div class="text-gray-400">Ninguém escalado</div>'}
+                                        ${renderVolunteers(data.parking, 'Parking')}
                                     </div>
                                 </div>
                                 <div class="bg-gray-50 p-3 rounded border-l-4" style="border-color: #151b29;">
                                     <h4 class="font-semibold mb-2" style="color: #151b29;">Kids (${data.kids.length})</h4>
                                     <div class="text-sm space-y-1">
-                                        ${data.kids.map(v => `<div>• ${v.userName}</div>`).join('') || '<div class="text-gray-400">Ninguém escalado</div>'}
+                                        ${renderVolunteers(data.kids, 'Kids')}
                                     </div>
                                 </div>
                             </div>
@@ -1247,6 +1494,21 @@
                 }).join('');
 
                 elements.adminView.innerHTML = html;
+
+                // Event listeners para admin deletar qualquer escala
+                if (isAdmin) {
+                    document.querySelectorAll('.admin-delete-escala').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            const escalaId = e.currentTarget.dataset.escalaId;
+                            showModal(
+                                'Como administrador, deseja remover esta pessoa da escala?',
+                                true,
+                                () => deleteEscala(escalaId),
+                                true
+                            );
+                        });
+                    });
+                }
             }
 
             // Event Listeners
@@ -1260,6 +1522,12 @@
             const loginForm = document.getElementById('login-form');
             const registerForm = document.getElementById('register-form');
             const resetPasswordForm = document.getElementById('reset-password-form');
+            
+            // Event listener para adicionar data (admin)
+            const adminAddDateBtn = document.getElementById('admin-add-date-btn');
+            if (adminAddDateBtn) {
+                adminAddDateBtn.addEventListener('click', addNewDate);
+            }
             
             // Abrir modal de email
             showEmailLogin.addEventListener('click', () => {
@@ -1316,11 +1584,15 @@
                 }
                 
                 try {
-                    await window.firebaseAuthMethods.signInWithEmailAndPassword(window.firebaseAuth, email, password);
                     emailLoginModal.classList.remove('show');
+                    showLoading(); // Mostrar loading durante o login
+                    await window.firebaseAuthMethods.signInWithEmailAndPassword(window.firebaseAuth, email, password);
                     console.log('✅ Login com email realizado');
+                    // O onAuthStateChanged vai cuidar de mostrar o app
                 } catch (error) {
                     console.error('❌ Erro no login:', error);
+                    showLogin(); // Voltar para login em caso de erro
+                    emailLoginModal.classList.add('show'); // Reabrir modal
                     let message = 'Erro ao fazer login. Tente novamente.';
                     if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
                         message = 'Email ou senha incorretos.';
@@ -1351,6 +1623,8 @@
                 }
                 
                 try {
+                    emailLoginModal.classList.remove('show');
+                    showLoading(); // Mostrar loading durante o cadastro
                     const userCredential = await window.firebaseAuthMethods.createUserWithEmailAndPassword(window.firebaseAuth, email, password);
                     
                     // Atualizar perfil com nome completo
@@ -1358,11 +1632,12 @@
                         displayName: `${name} ${lastname}`
                     });
                     
-                    emailLoginModal.classList.remove('show');
-                    showModal('Cadastro realizado com sucesso!');
                     console.log('✅ Cadastro realizado');
+                    // O onAuthStateChanged vai cuidar de mostrar o app e depois o modal de sucesso
                 } catch (error) {
                     console.error('❌ Erro no cadastro:', error);
+                    showLogin(); // Voltar para login em caso de erro
+                    emailLoginModal.classList.add('show'); // Reabrir modal
                     let message = 'Erro ao criar conta. Tente novamente.';
                     if (error.code === 'auth/email-already-in-use') {
                         message = 'Este email já está cadastrado. Faça login.';
@@ -1423,12 +1698,14 @@
             });
 
             // Monitorar autenticação
-            window.firebaseAuthMethods.onAuthStateChanged(window.firebaseAuth, (user) => {
+            window.firebaseAuthMethods.onAuthStateChanged(window.firebaseAuth, async (user) => {
                 console.log('🔄 Estado de auth mudou:', user?.email || 'deslogado');
                 currentUser = user;
 
                 if (user) {
+                    await checkAdminStatus(user);
                     updateUserUI(user);
+                    await loadAvailableDates();
                     showApp();
                     loadUserEscalas();
                     loadAllEscalas();
