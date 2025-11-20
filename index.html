@@ -382,10 +382,32 @@
                 </div>
             </div>
 
-            <!-- Painel de Administração (apenas para admins) -->
-            <div id="admin-panel" class="card-float rounded-xl p-6 mt-8" style="display: none;">
-                <h2 class="text-2xl font-bold mb-6" style="color: #151b29;">⚙️ Painel de Administração</h2>
-                
+        </main>
+    </div>
+
+    <!-- Página de Administração (apenas para admins) - Tela separada -->
+    <div id="admin-page" class="hidden">
+        <!-- Header -->
+        <header class="zele-primary text-white" style="box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);">
+            <div class="container mx-auto px-4 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <button id="back-from-admin" class="zele-btn p-2 rounded-lg">
+                            <svg class="w-6 h-6" fill="none" stroke="white" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                            </svg>
+                        </button>
+                        <img src="https://github.com/VolunteersZele/escala/blob/main/Volunteers%20logo.png?raw=true" alt="Logo" class="w-10 h-10 object-contain">
+                        <h1 class="text-2xl font-bold">Painel de Administração</h1>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Conteúdo da página de Admin -->
+        <main class="container mx-auto px-4 py-8 max-w-6xl">
+            <div class="card-float rounded-xl p-6">
+                <h2 class="text-2xl font-bold mb-6" style="color: #151b29;">⚙️ Gerenciar Sistema</h2>
                 <!-- Adicionar Nova Data -->
                 <div class="mb-6 p-4 bg-blue-50 rounded-lg border-2" style="border-color: #377db8;">
                     <h3 class="font-bold text-lg mb-4" style="color: #151b29;">➕ Adicionar Nova Data</h3>
@@ -416,8 +438,8 @@
                     </div>
                 </div>
             </div>
-
         </main>
+    </div>
     </div>
 
     <!-- Menu Lateral -->
@@ -450,6 +472,17 @@
 
             <!-- Menu Items -->
             <div class="space-y-2">
+                <button id="menu-admin-btn" class="w-full flex items-center gap-3 p-4 rounded-lg hover:bg-gray-100 transition text-left" style="display: none;">
+                    <svg class="w-6 h-6" style="color: #151b29;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    <div>
+                        <p class="font-semibold text-gray-800">Painel de Administração</p>
+                        <p class="text-xs text-gray-600">Gerenciar datas e sistema</p>
+                    </div>
+                </button>
+
                 <button id="install-app-btn" class="w-full flex items-center gap-3 p-4 rounded-lg hover:bg-gray-100 transition text-left" style="display: none;">
                     <svg class="w-6 h-6" style="color: #151b29;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
@@ -653,6 +686,28 @@
                 logout();
             });
 
+            // Navegação para página de admin
+            const menuAdminBtn = document.getElementById('menu-admin-btn');
+            const backFromAdminBtn = document.getElementById('back-from-admin');
+            const appContainer = document.getElementById('app-container');
+            const adminPage = document.getElementById('admin-page');
+
+            if (menuAdminBtn) {
+                menuAdminBtn.addEventListener('click', () => {
+                    closeMenu();
+                    appContainer.classList.add('hidden');
+                    adminPage.classList.remove('hidden');
+                    renderAdminDatesList(); // Atualizar lista de datas
+                });
+            }
+
+            if (backFromAdminBtn) {
+                backFromAdminBtn.addEventListener('click', () => {
+                    adminPage.classList.add('hidden');
+                    appContainer.classList.remove('hidden');
+                });
+            }
+
             // PWA Install
             let deferredPrompt;
             window.addEventListener('beforeinstallprompt', (e) => {
@@ -826,7 +881,7 @@
                         
                         if (data.role === 'admin') {
                             isAdmin = true;
-                            document.getElementById('admin-panel').style.display = 'block';
+                            document.getElementById('menu-admin-btn').style.display = 'block';
                             console.log('✅ Usuário É ADMINISTRADOR');
                             return true;
                         } else {
@@ -837,7 +892,7 @@
                     }
                     
                     isAdmin = false;
-                    document.getElementById('admin-panel').style.display = 'none';
+                    document.getElementById('menu-admin-btn').style.display = 'none';
                     return false;
                 } catch (error) {
                     console.error('❌ Erro ao verificar admin:', error);
@@ -1159,8 +1214,15 @@
                 defaultOption.textContent = 'Escolha uma data...';
                 select.appendChild(defaultOption);
 
-                // Adicionar apenas opções não escaladas
-                availableDates.forEach(option => {
+                // Ordenar datas disponíveis por data (ordem crescente)
+                const sortedDates = [...availableDates].sort((a, b) => {
+                    const dateA = a.value.split('|')[0];
+                    const dateB = b.value.split('|')[0];
+                    return dateA.localeCompare(dateB);
+                });
+
+                // Adicionar apenas opções não escaladas (já ordenadas)
+                sortedDates.forEach(option => {
                     const dateValue = option.value.split('|')[0];
                     if (!escaladasDates.has(dateValue)) {
                         const optionElement = document.createElement('option');
@@ -1341,19 +1403,21 @@
                     return;
                 }
                 
-                // Ordenar datas
+                // Ordenar datas por data (ordem crescente)
                 const sortedDates = [...availableDates].sort((a, b) => {
                     const dateA = a.value.split('|')[0];
                     const dateB = b.value.split('|')[0];
                     return dateA.localeCompare(dateB);
                 });
                 
-                const html = sortedDates.map((date, index) => {
+                const html = sortedDates.map((date) => {
+                    // Encontrar o índice real no array original
+                    const realIndex = availableDates.findIndex(d => d.value === date.value);
                     return `
                         <div class="flex items-center justify-between bg-white p-3 rounded border border-gray-200">
                             <span class="text-sm">${date.text}</span>
-                            <button class="admin-delete-date text-red-600 hover:text-red-800 text-sm font-semibold" data-index="${index}">
-                                🗑️ Remover
+                            <button class="admin-delete-date text-red-600 hover:text-red-800 text-sm font-semibold hover:underline" data-index="${realIndex}">
+                                Remover
                             </button>
                         </div>
                     `;
