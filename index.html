@@ -134,11 +134,28 @@
             display: block;
         }
         @keyframes blink-border {
-            0%, 100% { box-shadow: 0 0 0 0px #377db8; }
-            50% { box-shadow: 0 0 0 4px #377db8; }
+            0%, 100% { 
+                box-shadow: 0 0 0 0px #377db8;
+                border-color: #d1d5db;
+            }
+            50% { 
+                box-shadow: 0 0 0 4px #377db8;
+                border-color: #377db8;
+            }
+        }
+        @-webkit-keyframes blink-border {
+            0%, 100% { 
+                box-shadow: 0 0 0 0px #377db8;
+                border-color: #d1d5db;
+            }
+            50% { 
+                box-shadow: 0 0 0 4px #377db8;
+                border-color: #377db8;
+            }
         }
         .blink-border {
             animation: blink-border 0.5s ease-in-out 3;
+            -webkit-animation: blink-border 0.5s ease-in-out 3;
         }
         @keyframes pulse-team {
             0%, 100% { box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2); }
@@ -304,7 +321,7 @@
             <div class="card-float rounded-xl p-6 mb-8">
                 <div class="mb-6">
                     <h2 class="text-2xl font-bold mb-1" style="color: #151b29;">Escolha seu dia de servir</h2>
-                    <p class="text-sm text-gray-600 mb-3">Comece escolhendo o dia na lista</p>
+                    <p class="text-sm text-gray-600 mb-3"><strong>1º - Comece escolhendo o dia na lista</strong></p>
                     <select id="culto-select" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 text-base" style="--tw-ring-color: #151b29; border-color: #e5e5e5;">
                         <option value="">Escolha uma data...</option>
                         <option value="2025-11-20|19:00|Quinta">20/11 Quinta (chegar 19h)</option>
@@ -326,7 +343,7 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-semibold mb-2" style="color: #151b29;">Em qual equipe você vai servir nesta data?</label>
+                    <label class="block text-sm font-semibold mb-2" style="color: #151b29;">2º - Em qual equipe você vai servir nesta data?</label>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <button class="team-btn rounded-lg" data-team="welcome" 
                                 data-img-normal="https://github.com/VolunteersZele/escala/blob/main/Logo%20Welcome%20horizontal.png?raw=true"
@@ -351,9 +368,12 @@
                     </div>
                 </div>
 
-                <button id="save-escala-btn" class="w-full zele-btn text-white font-bold py-3 px-6 rounded-lg mt-4">
-                    💾 Salvar Escala
-                </button>
+                <div class="mt-6">
+                    <label class="block text-sm font-semibold mb-2" style="color: #151b29;">3º - Salve a data e time que vai servir</label>
+                    <button id="save-escala-btn" class="w-full zele-btn text-white font-bold py-3 px-6 rounded-lg">
+                        💾 Salvar Escala
+                    </button>
+                </div>
             </div>
 
             <!-- Calendário/Lista de Escalas -->
@@ -483,6 +503,16 @@
                     </div>
                 </button>
 
+                <button id="menu-blocked-attempts-btn" class="w-full flex items-center gap-3 p-4 rounded-lg hover:bg-gray-100 transition text-left" style="display: none;">
+                    <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                    <div>
+                        <p class="font-semibold text-gray-800">Tentativas Bloqueadas</p>
+                        <p class="text-xs text-gray-600">Ver deleções bloqueadas</p>
+                    </div>
+                </button>
+
                 <button id="install-app-btn" class="w-full flex items-center gap-3 p-4 rounded-lg hover:bg-gray-100 transition text-left" style="display: none;">
                     <svg class="w-6 h-6" style="color: #151b29;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
@@ -526,6 +556,31 @@
         </div>
     </div>
 
+    <!-- Modal de Instruções iOS -->
+    <div id="ios-install-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h2 class="text-xl font-bold mb-4 text-gray-800">📱 Instalar App no iPhone</h2>
+            <p class="text-sm text-gray-600 mb-4">Para adicionar o Volunteers Zele à sua tela inicial:</p>
+            <ol class="text-sm text-gray-700 space-y-3 mb-6">
+                <li class="flex items-start">
+                    <span class="font-bold mr-2">1.</span>
+                    <span>Toque no botão <strong>Compartilhar</strong> <svg class="inline w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M16 5l-1.42 1.42-1.59-1.59V16h-1.98V4.83L9.42 6.42 8 5l4-4 4 4zm4 5v11c0 1.1-.9 2-2 2H6c-1.11 0-2-.9-2-2V10c0-1.11.89-2 2-2h3v2H6v11h12V10h-3V8h3c1.1 0 2 .89 2 2z"/></svg> (na barra inferior do Safari)</span>
+                </li>
+                <li class="flex items-start">
+                    <span class="font-bold mr-2">2.</span>
+                    <span>Role para baixo e toque em <strong>"Adicionar à Tela de Início"</strong> <svg class="inline w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg></span>
+                </li>
+                <li class="flex items-start">
+                    <span class="font-bold mr-2">3.</span>
+                    <span>Toque em <strong>"Adicionar"</strong> no canto superior direito</span>
+                </li>
+            </ol>
+            <button id="close-ios-modal" class="w-full bg-indigo-600 text-white px-4 py-3 rounded-lg hover:bg-indigo-700 transition-colors font-semibold">
+                Entendi
+            </button>
+        </div>
+    </div>
+
     <script>
         // Aguardar Firebase estar pronto
         function initApp() {
@@ -546,6 +601,8 @@
             let selectedTeam = null;
             let isAdmin = false;
             let availableDates = [];
+            let deferredPrompt = null;
+            let isIOS = false;
             
             // Pré-carregar todas as imagens dos times
             const preloadedImages = {};
@@ -708,32 +765,111 @@
                 });
             }
 
-            // PWA Install
-            let deferredPrompt;
-            window.addEventListener('beforeinstallprompt', (e) => {
-                e.preventDefault();
-                deferredPrompt = e;
-                elements.installAppBtn.style.display = 'block';
-            });
+            // ===================================
+            // DETECÇÃO E INSTALAÇÃO PWA
+            // ===================================
 
-            elements.installAppBtn.addEventListener('click', async () => {
-                if (!deferredPrompt) {
-                    showModal('App já está instalado ou não pode ser instalado neste dispositivo.');
+            // Detectar se é iOS
+            function detectIOS() {
+                const userAgent = window.navigator.userAgent.toLowerCase();
+                return /iphone|ipad|ipod/.test(userAgent);
+            }
+
+            // Detectar se já está instalado como PWA
+            function isInStandaloneMode() {
+                return (window.matchMedia('(display-mode: standalone)').matches) || 
+                       (window.navigator.standalone) || 
+                       document.referrer.includes('android-app://');
+            }
+
+            // Configurar botão de instalação
+            function setupInstallButton() {
+                isIOS = detectIOS();
+                const installBtn = elements.installAppBtn;
+                
+                // Não mostrar se já estiver instalado
+                if (isInStandaloneMode()) {
+                    console.log('✅ App já está instalado');
                     return;
                 }
 
-                deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                
-                if (outcome === 'accepted') {
-                    showModal('Aguarde, o app será instalado em instantes...');
-                    elements.installAppBtn.style.display = 'none';
+                if (isIOS) {
+                    // iOS: Mostrar botão com instruções manuais
+                    console.log('📱 iOS detectado - mostrando instruções manuais');
+                    installBtn.style.display = 'block';
+                    installBtn.addEventListener('click', () => {
+                        closeMenu();
+                        document.getElementById('ios-install-modal').classList.remove('hidden');
+                    });
                 } else {
-                    showModal('Instalação cancelada.');
+                    // Android/Desktop: Aguardar evento beforeinstallprompt
+                    window.addEventListener('beforeinstallprompt', (e) => {
+                        console.log('📱 beforeinstallprompt disparado');
+                        e.preventDefault();
+                        deferredPrompt = e;
+                        installBtn.style.display = 'block';
+                    });
+
+                    installBtn.addEventListener('click', async () => {
+                        if (!deferredPrompt) {
+                            console.log('❌ Prompt de instalação não disponível');
+                            showModal('App já está instalado ou não pode ser instalado neste dispositivo.');
+                            return;
+                        }
+
+                        deferredPrompt.prompt();
+                        const { outcome } = await deferredPrompt.userChoice;
+                        console.log(`👤 Usuário escolheu: ${outcome}`);
+                        
+                        if (outcome === 'accepted') {
+                            showModal('Aguarde, o app será instalado em instantes!');
+                            installBtn.style.display = 'none';
+                        } else {
+                            showModal('Instalação cancelada.');
+                        }
+                        
+                        deferredPrompt = null;
+                        closeMenu();
+                    });
                 }
-                
-                deferredPrompt = null;
+
+                // Listener quando o app é instalado
+                window.addEventListener('appinstalled', () => {
+                    console.log('✅ PWA instalado com sucesso');
+                    installBtn.style.display = 'none';
+                    deferredPrompt = null;
+                });
+            }
+
+            // Fechar modal iOS
+            document.getElementById('close-ios-modal')?.addEventListener('click', () => {
+                document.getElementById('ios-install-modal').classList.add('hidden');
+            });
+
+            // Fechar modal clicando fora
+            document.getElementById('ios-install-modal')?.addEventListener('click', (e) => {
+                if (e.target.id === 'ios-install-modal') {
+                    document.getElementById('ios-install-modal').classList.add('hidden');
+                }
+            });
+
+            // Botão de tentativas bloqueadas
+            document.getElementById('menu-blocked-attempts-btn')?.addEventListener('click', () => {
                 closeMenu();
+                loadBlockedAttempts();
+                document.getElementById('blocked-attempts-modal').classList.remove('hidden');
+            });
+
+            // Fechar modal de tentativas bloqueadas
+            document.getElementById('close-blocked-modal')?.addEventListener('click', () => {
+                document.getElementById('blocked-attempts-modal').classList.add('hidden');
+            });
+
+            // Fechar modal clicando fora
+            document.getElementById('blocked-attempts-modal')?.addEventListener('click', (e) => {
+                if (e.target.id === 'blocked-attempts-modal') {
+                    document.getElementById('blocked-attempts-modal').classList.add('hidden');
+                }
             });
 
             // Seleção de time
@@ -749,10 +885,22 @@
                             true,
                             () => {
                                 // Piscar a borda do select após fechar o modal
-                                elements.cultoSelect.classList.add('blink-border');
+                                // Delay maior para iOS e forçar reflow do DOM
                                 setTimeout(() => {
+                                    // Remover classe se já existir (para garantir nova animação)
                                     elements.cultoSelect.classList.remove('blink-border');
-                                }, 1500); // 3 piscadas x 0.5s = 1.5s
+                                    
+                                    // Forçar reflow do DOM (crítico para iOS)
+                                    void elements.cultoSelect.offsetWidth;
+                                    
+                                    // Adicionar classe de animação
+                                    elements.cultoSelect.classList.add('blink-border');
+                                    
+                                    // Remover após animação completar
+                                    setTimeout(() => {
+                                        elements.cultoSelect.classList.remove('blink-border');
+                                    }, 1500); // 3 piscadas x 0.5s = 1.5s
+                                }, 100); // Delay para iOS processar fechamento do modal
                             }
                         );
                         
@@ -907,12 +1055,13 @@
             function updateUserUI(user) {
                 if (user) {
                     const displayName = user.displayName || 'Usuário';
+                    const defaultPhoto = 'https://github.com/VolunteersZele/escala/blob/main/Zele%20logo.png?raw=true';
                     elements.userName.textContent = isAdmin ? `${displayName} 👑` : displayName;
                     elements.userEmail.textContent = user.email;
-                    elements.userPhoto.src = user.photoURL || '';
+                    elements.userPhoto.src = user.photoURL || defaultPhoto;
                     elements.menuUserName.textContent = isAdmin ? `${displayName} 👑` : displayName;
                     elements.menuUserEmail.textContent = user.email;
-                    elements.menuUserPhoto.src = user.photoURL || '';
+                    elements.menuUserPhoto.src = user.photoURL || defaultPhoto;
                 }
             }
 
@@ -1281,7 +1430,7 @@
                                     </div>
                                 </div>
                                 ${canDelete ? `
-                                <button class="delete-escala-btn text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition" data-escala-id="${escala.id}" title="Deletar escala">
+                                <button class="delete-escala-btn text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition" data-escala-id="${escala.id}" data-escala-date="${escala.date}" title="Deletar escala">
                                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                                     </svg>
@@ -1298,6 +1447,24 @@
                 document.querySelectorAll('.delete-escala-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         const escalaId = e.currentTarget.dataset.escalaId;
+                        const escalaDate = e.currentTarget.dataset.escalaDate;
+                        
+                        // Buscar dados completos da escala
+                        const escala = escalas.find(esc => esc.id === escalaId);
+                        
+                        // Verificar se pode deletar (não pode deletar na véspera ou no dia)
+                        if (!canDeleteEscala(escalaDate)) {
+                            // Registrar tentativa bloqueada
+                            if (escala) {
+                                logBlockedAttempt(escala);
+                            }
+                            
+                            showModal(
+                                '⛔ Não é possível deletar escala na véspera ou no dia do evento. Entre em contato com o líder dos Voluntários para solicitar a exclusão.'
+                            );
+                            return;
+                        }
+                        
                         showModal(
                             'Tem certeza que deseja remover esta escala?',
                             true,
@@ -1377,6 +1544,125 @@
                     renderAdminView(allEscalasGrouped);
                 }
             });
+
+            // Salvar tentativa bloqueada de deleção no Firestore
+            async function logBlockedAttempt(escalaData) {
+                try {
+                    const { collection, addDoc } = window.firestoreMethods;
+                    await addDoc(collection(window.firebaseDb, 'blockedAttempts'), {
+                        userId: currentUser.uid,
+                        userName: currentUser.displayName || currentUser.email,
+                        userEmail: currentUser.email,
+                        escalaDate: escalaData.date,
+                        escalaTime: escalaData.time,
+                        escalaTeam: escalaData.team,
+                        escalaEventName: escalaData.eventName || '',
+                        attemptDate: new Date().toISOString(),
+                        attemptDateFormatted: new Date().toLocaleString('pt-BR'),
+                        timestamp: Date.now()
+                    });
+                    console.log('📋 Tentativa bloqueada registrada');
+                } catch (error) {
+                    console.error('❌ Erro ao registrar tentativa bloqueada:', error);
+                }
+            }
+
+            // Carregar tentativas bloqueadas (apenas admin)
+            async function loadBlockedAttempts() {
+                if (!isAdmin) return;
+                
+                try {
+                    const { collection, getDocs, query, orderBy } = window.firestoreMethods;
+                    const q = query(
+                        collection(window.firebaseDb, 'blockedAttempts'),
+                        orderBy('timestamp', 'desc')
+                    );
+                    const querySnapshot = await getDocs(q);
+                    
+                    const attempts = [];
+                    querySnapshot.forEach((doc) => {
+                        attempts.push({ id: doc.id, ...doc.data() });
+                    });
+                    
+                    renderBlockedAttempts(attempts);
+                } catch (error) {
+                    console.error('❌ Erro ao carregar tentativas bloqueadas:', error);
+                    document.getElementById('blocked-attempts-list').innerHTML = 
+                        '<p class="text-gray-500 text-center py-8">Erro ao carregar dados.</p>';
+                }
+            }
+
+            // Renderizar lista de tentativas bloqueadas
+            function renderBlockedAttempts(attempts) {
+                const listEl = document.getElementById('blocked-attempts-list');
+                
+                if (attempts.length === 0) {
+                    listEl.innerHTML = '<p class="text-gray-500 text-center py-8">Nenhuma tentativa bloqueada registrada.</p>';
+                    return;
+                }
+                
+                const teamNames = {
+                    welcome: 'Welcome',
+                    backstage: 'Backstage',
+                    parking: 'Parking',
+                    kids: 'Kids'
+                };
+                
+                const html = attempts.map(attempt => {
+                    const eventDate = new Date(attempt.escalaDate + 'T' + attempt.escalaTime);
+                    const eventDateStr = eventDate.toLocaleDateString('pt-BR', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                    });
+                    const eventNameDisplay = attempt.escalaEventName ? ` - ${attempt.escalaEventName}` : '';
+                    
+                    return `
+                        <div class="border-l-4 border-orange-500 bg-orange-50 p-4 rounded-lg mb-3">
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <span class="font-bold text-gray-800">${attempt.userName}</span>
+                                        <span class="text-xs text-gray-500">${attempt.userEmail}</span>
+                                    </div>
+                                    <div class="space-y-1 text-sm text-gray-700">
+                                        <p><strong>📅 Evento:</strong> ${eventDateStr}${eventNameDisplay}</p>
+                                        <p><strong>🕑 Horário:</strong> ${attempt.escalaTime}</p>
+                                        <p><strong>👥 Equipe:</strong> ${teamNames[attempt.escalaTeam] || attempt.escalaTeam}</p>
+                                        <p class="text-xs text-gray-500 mt-2"><strong>⏰ Tentativa em:</strong> ${attempt.attemptDateFormatted}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+                listEl.innerHTML = html;
+            }
+
+            // Verificar se pode deletar escala (impede deleção na véspera e no dia)
+            function canDeleteEscala(escalaDate) {
+                // Admin sempre pode deletar
+                if (isAdmin) {
+                    return true;
+                }
+                
+                // Pegar data atual (apenas dia, sem hora)
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                
+                // Pegar data do evento (apenas dia, sem hora)
+                const eventDate = new Date(escalaDate + 'T00:00:00');
+                eventDate.setHours(0, 0, 0, 0);
+                
+                // Calcular diferença em dias
+                const diffTime = eventDate - today;
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                
+                // Pode deletar se faltar mais de 1 dia (ou seja, pelo menos 2 dias)
+                return diffDays >= 2;
+            }
 
             // Deletar escala
             async function deleteEscala(escalaId) {
@@ -1826,6 +2112,7 @@
                     showApp();
                     await loadUserEscalas(); // Agora sim carregar escalas
                     await loadAllEscalas();
+                    setupInstallButton(); // Configurar botão de instalação após login
                 } else {
                     showLogin();
                 }
