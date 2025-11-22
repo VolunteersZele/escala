@@ -166,8 +166,8 @@
             50% { border: 10px solid #cdc8c0; }
         }
         .pulse-team {
-            animation: pulse-team 0.5s ease-in-out 2;
-            -webkit-animation: pulse-team 0.5s ease-in-out 2;
+            animation: pulse-team 0.5s ease-in-out 1;
+            -webkit-animation: pulse-team 0.5s ease-in-out 1;
         }
         @keyframes pulse-save {
             0%, 100% { border: 2px solid transparent; }
@@ -478,10 +478,27 @@
                         <input type="text" id="admin-new-event" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Ex: Culto de Domingo, Quinta do Encontro, etc.">
                     </div>
                     <div class="mb-3">
-                        <label class="block text-sm font-semibold mb-1" style="color: #151b29;">Limite Máximo por Time</label>
-                        <input type="number" id="admin-max-volunteers" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Ex: 4" min="1" max="10" value="4">
+                        <label class="block text-sm font-semibold mb-2" style="color: #151b29;">Limite de Voluntários por Time</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">👋 Welcome</label>
+                                <input type="number" id="admin-limit-welcome" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="4" min="1" max="20" value="4">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">🤝 Backstage</label>
+                                <input type="number" id="admin-limit-backstage" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="4" min="1" max="20" value="4">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">🚗 Parking</label>
+                                <input type="number" id="admin-limit-parking" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="4" min="1" max="20" value="4">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">👶 Kids</label>
+                                <input type="number" id="admin-limit-kids" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="4" min="1" max="20" value="4">
+                            </div>
+                        </div>
                         <span id="limit-error" class="text-xs text-red-600 hidden mt-1"></span>
-                        <p class="text-xs text-gray-500 mt-1">Número máximo de voluntários por time para este evento</p>
+                        <p class="text-xs text-gray-500 mt-2">Número máximo de voluntários por time para este evento</p>
                     </div>
                     <button id="admin-add-date-btn" class="w-full zele-btn text-white font-bold py-3 px-6 rounded-lg">
                         ➕ Adicionar Data
@@ -1083,7 +1100,7 @@
             // Função para animar botões dos times em sequência (horário)
             function animateTeamButtonsSequence() {
                 const teamOrder = ['welcome', 'backstage', 'parking', 'kids'];
-                const delay = 1000; // tempo total da animação (2 piscadas x 0.5s = 1s)
+                const delay = 500; // tempo total da animação (1 piscada x 0.5s = 0.5s)
                 
                 teamOrder.forEach((teamName, index) => {
                     setTimeout(() => {
@@ -1092,7 +1109,7 @@
                             btn.classList.add('pulse-team');
                             setTimeout(() => {
                                 btn.classList.remove('pulse-team');
-                            }, 1000); // 2 piscadas x 0.5s = 1s
+                            }, 500); // 1 piscada x 0.5s = 0.5s
                         }
                     }, index * delay);
                 });
@@ -1213,13 +1230,20 @@
             // Verificar limite de voluntários no time (máximo 4 por time por evento)
             async function checkTeamLimit(date, time, team) {
                 try {
-                    // Buscar o maxVolunteers do evento específico
+                    // Buscar o evento específico
                     const eventKey = availableDates.find(d => {
                         const [eventDate, eventTime] = d.value.split('|');
                         return eventDate === date && eventTime === time;
                     });
                     
-                    const maxVolunteers = eventKey?.maxVolunteers || 4; // Padrão 4 se não encontrar
+                    // Obter limite específico do time (novo formato) ou padrão 4
+                    let maxVolunteers = 4;
+                    if (eventKey?.teamLimits && eventKey.teamLimits[team]) {
+                        maxVolunteers = eventKey.teamLimits[team];
+                    } else if (eventKey?.maxVolunteers) {
+                        // Retrocompatibilidade com formato antigo
+                        maxVolunteers = eventKey.maxVolunteers;
+                    }
                     
                     const { collection, query, where, getDocs } = window.firestoreMethods;
                     const q = query(
@@ -1547,11 +1571,23 @@
                     if (datesDoc.exists()) {
                         availableDates = datesDoc.data().dates || [];
                         
-                        // Adicionar maxVolunteers padrão se não existir (retrocompatibilidade)
-                        availableDates = availableDates.map(date => ({
-                            ...date,
-                            maxVolunteers: date.maxVolunteers || 4
-                        }));
+                        // Adicionar teamLimits padrão se não existir (retrocompatibilidade)
+                        availableDates = availableDates.map(date => {
+                            if (!date.teamLimits) {
+                                // Se tem maxVolunteers antigo, usar para todos os times
+                                const defaultLimit = date.maxVolunteers || 4;
+                                return {
+                                    ...date,
+                                    teamLimits: {
+                                        welcome: defaultLimit,
+                                        backstage: defaultLimit,
+                                        parking: defaultLimit,
+                                        kids: defaultLimit
+                                    }
+                                };
+                            }
+                            return date;
+                        });
                         
                         // Filtrar apenas eventos futuros
                         const now = new Date();
@@ -1563,23 +1599,23 @@
                         
                         console.log(`🧹 ${availableDates.length} eventos futuros carregados`);
                     } else {
-                        // Datas padrão iniciais com maxVolunteers
+                        // Datas padrão iniciais com teamLimits
                         availableDates = [
-                            { value: "2025-11-20|19:00|Quinta", text: "20/11 Quinta (chegar 19h)", maxVolunteers: 4 },
-                            { value: "2025-11-23|09:00|Domingo", text: "23/11 Domingo (chegar 09h)", maxVolunteers: 4 },
-                            { value: "2025-11-27|19:00|Quinta", text: "27/11 Quinta (chegar 19h)", maxVolunteers: 4 },
-                            { value: "2025-11-30|09:00|Domingo", text: "30/11 Domingo (chegar 09h)", maxVolunteers: 4 },
-                            { value: "2025-12-04|19:00|Quinta", text: "04/12 Quinta (chegar 19h)", maxVolunteers: 4 },
-                            { value: "2025-12-07|09:00|Domingo", text: "07/12 Domingo (chegar 09h)", maxVolunteers: 4 },
-                            { value: "2025-12-11|19:00|Quinta - Pré Inauguração", text: "11/12 Quinta | Pré Inauguração (chegar 19h)", maxVolunteers: 4 },
-                            { value: "2025-12-12|19:00|Sexta - Ensaio Geral", text: "12/12 Sexta | Ensaio Geral (chegar 19h)", maxVolunteers: 4 },
-                            { value: "2025-12-13|00:00|Sábado - Inauguração", text: "13/12 Sábado | Inauguração (horário a definir)", maxVolunteers: 6 },
-                            { value: "2025-12-14|09:00|Domingo - Batismo", text: "14/12 Domingo | Batismo (chegar 9h)", maxVolunteers: 4 },
-                            { value: "2025-12-18|19:00|Quinta do Encontro", text: "18/12 Quinta do Encontro (chegar 19h)", maxVolunteers: 4 },
-                            { value: "2025-12-21|09:00|Domingo", text: "21/12 Culto de Domingo (chegar 09h)", maxVolunteers: 4 },
-                            { value: "2025-12-25|19:00|Quinta - Natal", text: "25/12 Quinta (chegar 19h)", maxVolunteers: 4 },
-                            { value: "2025-12-28|09:00|Domingo", text: "28/12 Domingo (chegar 09h)", maxVolunteers: 4 },
-                            { value: "2025-12-31|00:00|Culto da Virada", text: "31/12 Culto da Virada (horário a definir)", maxVolunteers: 6 }
+                            { value: "2025-11-20|19:00|Quinta", text: "20/11 Quinta (chegar 19h)", teamLimits: {welcome: 4, backstage: 4, parking: 4, kids: 4} },
+                            { value: "2025-11-23|09:00|Domingo", text: "23/11 Domingo (chegar 09h)", teamLimits: {welcome: 4, backstage: 4, parking: 4, kids: 4} },
+                            { value: "2025-11-27|19:00|Quinta", text: "27/11 Quinta (chegar 19h)", teamLimits: {welcome: 4, backstage: 4, parking: 4, kids: 4} },
+                            { value: "2025-11-30|09:00|Domingo", text: "30/11 Domingo (chegar 09h)", teamLimits: {welcome: 4, backstage: 4, parking: 4, kids: 4} },
+                            { value: "2025-12-04|19:00|Quinta", text: "04/12 Quinta (chegar 19h)", teamLimits: {welcome: 4, backstage: 4, parking: 4, kids: 4} },
+                            { value: "2025-12-07|09:00|Domingo", text: "07/12 Domingo (chegar 09h)", teamLimits: {welcome: 4, backstage: 4, parking: 4, kids: 4} },
+                            { value: "2025-12-11|19:00|Quinta - Pré Inauguração", text: "11/12 Quinta | Pré Inauguração (chegar 19h)", teamLimits: {welcome: 4, backstage: 4, parking: 4, kids: 4} },
+                            { value: "2025-12-12|19:00|Sexta - Ensaio Geral", text: "12/12 Sexta | Ensaio Geral (chegar 19h)", teamLimits: {welcome: 4, backstage: 4, parking: 4, kids: 4} },
+                            { value: "2025-12-13|00:00|Sábado - Inauguração", text: "13/12 Sábado | Inauguração (horário a definir)", teamLimits: {welcome: 6, backstage: 6, parking: 6, kids: 6} },
+                            { value: "2025-12-14|09:00|Domingo - Batismo", text: "14/12 Domingo | Batismo (chegar 9h)", teamLimits: {welcome: 4, backstage: 4, parking: 4, kids: 4} },
+                            { value: "2025-12-18|19:00|Quinta do Encontro", text: "18/12 Quinta do Encontro (chegar 19h)", teamLimits: {welcome: 4, backstage: 4, parking: 4, kids: 4} },
+                            { value: "2025-12-21|09:00|Domingo", text: "21/12 Culto de Domingo (chegar 09h)", teamLimits: {welcome: 4, backstage: 4, parking: 4, kids: 4} },
+                            { value: "2025-12-25|19:00|Quinta - Natal", text: "25/12 Quinta (chegar 19h)", teamLimits: {welcome: 4, backstage: 4, parking: 4, kids: 4} },
+                            { value: "2025-12-28|09:00|Domingo", text: "28/12 Domingo (chegar 09h)", teamLimits: {welcome: 4, backstage: 4, parking: 4, kids: 4} },
+                            { value: "2025-12-31|00:00|Culto da Virada", text: "31/12 Culto da Virada (horário a definir)", teamLimits: {welcome: 6, backstage: 6, parking: 6, kids: 6} }
                         ];
                         
                         // Salvar datas padrão no Firestore
@@ -2049,17 +2085,31 @@
                     }
                 }
                 
-                // Validar limite de voluntários
-                const limitInput = document.getElementById('admin-max-volunteers');
+                // Validar limite de voluntários (4 times)
+                const limitInputs = {
+                    welcome: document.getElementById('admin-limit-welcome'),
+                    backstage: document.getElementById('admin-limit-backstage'),
+                    parking: document.getElementById('admin-limit-parking'),
+                    kids: document.getElementById('admin-limit-kids')
+                };
                 const limitError = document.getElementById('limit-error');
-                const limit = parseInt(limitInput.value);
-                if (!limit || limit < 1 || limit > 10) {
-                    limitInput.classList.add('border-red-500');
-                    limitError.textContent = 'Limite deve estar entre 1 e 10';
+                
+                let hasInvalidLimit = false;
+                Object.entries(limitInputs).forEach(([team, input]) => {
+                    const limit = parseInt(input.value);
+                    if (!limit || limit < 1 || limit > 20) {
+                        input.classList.add('border-red-500');
+                        hasInvalidLimit = true;
+                    } else {
+                        input.classList.remove('border-red-500');
+                    }
+                });
+                
+                if (hasInvalidLimit) {
+                    limitError.textContent = 'Limites devem estar entre 1 e 20';
                     limitError.classList.remove('hidden');
                     isValid = false;
                 } else {
-                    limitInput.classList.remove('border-red-500');
                     limitError.classList.add('hidden');
                 }
                 
@@ -2076,6 +2126,14 @@
                 document.getElementById('admin-max-volunteers').classList.remove('border-red-500');
                 document.getElementById('limit-error').classList.add('hidden');
             });
+            
+            // Limpar erros dos limites individuais
+            ['welcome', 'backstage', 'parking', 'kids'].forEach(team => {
+                document.getElementById(`admin-limit-${team}`)?.addEventListener('input', () => {
+                    document.getElementById(`admin-limit-${team}`).classList.remove('border-red-500');
+                    document.getElementById('limit-error').classList.add('hidden');
+                });
+            });
 
             // Adicionar nova data (apenas admin)
             async function addNewDate() {
@@ -2087,8 +2145,12 @@
                 const dateInput = document.getElementById('admin-new-date').value;
                 const timeInput = document.getElementById('admin-new-time').value;
                 const eventInput = document.getElementById('admin-new-event').value.trim();
-                const maxVolunteersInput = document.getElementById('admin-max-volunteers').value;
-                const maxVolunteers = parseInt(maxVolunteersInput) || 4;
+                const teamLimits = {
+                    welcome: parseInt(document.getElementById('admin-limit-welcome').value) || 4,
+                    backstage: parseInt(document.getElementById('admin-limit-backstage').value) || 4,
+                    parking: parseInt(document.getElementById('admin-limit-parking').value) || 4,
+                    kids: parseInt(document.getElementById('admin-limit-kids').value) || 4
+                };
                 
                 // Formatar data para exibição (dd/mm)
                 const dateObj = new Date(dateInput + 'T12:00:00');
@@ -2115,15 +2177,15 @@
                 
                 // Confirmação antes de adicionar
                 showModal(
-                    `Confirmar criação do evento?<br><br><strong>${text}</strong><br>Limite: ${maxVolunteers} voluntários/time`,
+                    `Confirmar criação do evento?<br><br><strong>${text}</strong><br><br>Limites por time:<br>Welcome: ${teamLimits.welcome} | Backstage: ${teamLimits.backstage}<br>Parking: ${teamLimits.parking} | Kids: ${teamLimits.kids}`,
                     true,
                     async () => {
                         try {
-                            // Adicionar à lista com maxVolunteers e schema version
+                            // Adicionar à lista com teamLimits e schema version
                             availableDates.push({ 
                                 value, 
                                 text, 
-                                maxVolunteers,
+                                teamLimits: teamLimits,
                                 schemaVersion: CONFIG.SCHEMA_VERSION,
                                 createdAt: new Date().toISOString(),
                                 createdBy: currentUser?.email || 'unknown'
@@ -2141,7 +2203,7 @@
                             
                             // Backup se habilitado
                             if (CONFIG.BACKUP_ENABLED) {
-                                await backupData('eventCreated', { value, text, maxVolunteers });
+                                await backupData('eventCreated', { value, text, teamLimits });
                             }
                             
                             showModal('Data adicionada com sucesso!');
@@ -2150,7 +2212,10 @@
                             document.getElementById('admin-new-date').value = '';
                             document.getElementById('admin-new-time').value = '';
                             document.getElementById('admin-new-event').value = '';
-                            document.getElementById('admin-max-volunteers').value = '4';
+                            document.getElementById('admin-limit-welcome').value = '4';
+                            document.getElementById('admin-limit-backstage').value = '4';
+                            document.getElementById('admin-limit-parking').value = '4';
+                            document.getElementById('admin-limit-kids').value = '4';
                             
                             // Atualizar lista
                             renderAdminDatesList();
