@@ -464,20 +464,23 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                         <div>
                             <label class="block text-sm font-semibold mb-1" style="color: #151b29;">Data</label>
-                            <input type="date" id="admin-new-date" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                            <input type="date" id="admin-new-date" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <span id="date-error" class="text-xs text-red-600 hidden mt-1"></span>
                         </div>
                         <div>
                             <label class="block text-sm font-semibold mb-1" style="color: #151b29;">Horário</label>
-                            <input type="time" id="admin-new-time" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                            <input type="time" id="admin-new-time" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <span id="time-error" class="text-xs text-red-600 hidden mt-1"></span>
                         </div>
                     </div>
                     <div class="mb-3">
                         <label class="block text-sm font-semibold mb-1" style="color: #151b29;">Nome do Evento (opcional)</label>
-                        <input type="text" id="admin-new-event" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="Ex: Culto de Domingo, Quinta do Encontro, etc.">
+                        <input type="text" id="admin-new-event" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Ex: Culto de Domingo, Quinta do Encontro, etc.">
                     </div>
                     <div class="mb-3">
                         <label class="block text-sm font-semibold mb-1" style="color: #151b29;">Limite Máximo por Time</label>
-                        <input type="number" id="admin-max-volunteers" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="Ex: 4" min="1" max="10" value="4">
+                        <input type="number" id="admin-max-volunteers" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Ex: 4" min="1" max="10" value="4">
+                        <span id="limit-error" class="text-xs text-red-600 hidden mt-1"></span>
                         <p class="text-xs text-gray-500 mt-1">Número máximo de voluntários por time para este evento</p>
                     </div>
                     <button id="admin-add-date-btn" class="w-full zele-btn text-white font-bold py-3 px-6 rounded-lg">
@@ -635,20 +638,79 @@
     </div>
 
     <script>
+        // 🔧 CONFIGURAÇÕES DO SISTEMA
+        const CONFIG = {
+            DEBUG_MODE: false, // Alterar para false em produção
+            SCHEMA_VERSION: '2.1.0',
+            MAX_RETRIES: 3,
+            RETRY_DELAY: 1000, // ms
+            BACKUP_ENABLED: true
+        };
+        
+        // Sistema de logging condicional
+        const logger = {
+            log: (...args) => CONFIG.DEBUG_MODE && console.log(...args),
+            info: (...args) => CONFIG.DEBUG_MODE && console.info(...args),
+            warn: (...args) => console.warn(...args), // Sempre mostrar warnings
+            error: (...args) => console.error(...args), // Sempre mostrar erros
+            success: (...args) => CONFIG.DEBUG_MODE && console.log('✅', ...args)
+        };
+        
         // Aguardar Firebase estar pronto
         function initApp() {
-            console.log('🚀 App iniciando...');
+            logger.log('🚀 App iniciando... v' + CONFIG.SCHEMA_VERSION);
             
             // Verificar se Firebase foi inicializado
             if (!window.firebaseAuth || !window.firebaseDb) {
-                console.error('❌ Firebase não inicializado, tentando novamente...');
+                logger.error('❌ Firebase não inicializado, tentando novamente...');
                 setTimeout(initApp, 100);
                 return;
             }
             
-            console.log('✅ Firebase Auth:', window.firebaseAuth);
-            console.log('✅ Firebase DB:', window.firebaseDb);
-            console.log('✅ Firebase Provider:', window.firebaseProvider);
+            // Função de retry para operações Firestore
+            async function firestoreRetry(operation, operationName = 'Operação') {
+                let lastError;
+                for (let attempt = 1; attempt <= CONFIG.MAX_RETRIES; attempt++) {
+                    try {
+                        logger.log(`🔄 ${operationName} - Tentativa ${attempt}/${CONFIG.MAX_RETRIES}`);
+                        const result = await operation();
+                        logger.success(`${operationName} - Sucesso`);
+                        return result;
+                    } catch (error) {
+                        lastError = error;
+                        logger.warn(`⚠️ ${operationName} - Falha na tentativa ${attempt}:`, error.message);
+                        if (attempt < CONFIG.MAX_RETRIES) {
+                            await new Promise(resolve => setTimeout(resolve, CONFIG.RETRY_DELAY * attempt));
+                        }
+                    }
+                }
+                logger.error(`❌ ${operationName} - Todas as tentativas falharam`);
+                throw lastError;
+            }
+            
+            // Sistema de backup automático
+            async function backupData(action, data) {
+                if (!CONFIG.BACKUP_ENABLED) return;
+                
+                try {
+                    const { collection, addDoc } = window.firestoreMethods;
+                    await addDoc(collection(window.firebaseDb, 'backups'), {
+                        action: action,
+                        data: data,
+                        user: currentUser?.email || 'unknown',
+                        timestamp: new Date().toISOString(),
+                        schemaVersion: CONFIG.SCHEMA_VERSION
+                    });
+                    logger.log('💾 Backup criado:', action);
+                } catch (error) {
+                    logger.error('❌ Erro ao criar backup:', error);
+                    // Não bloquear operação se backup falhar
+                }
+            }
+            
+            logger.success('Firebase Auth:', window.firebaseAuth ? 'OK' : 'Falha');
+            logger.success('Firebase DB:', window.firebaseDb ? 'OK' : 'Falha');
+            logger.success('Firebase Provider:', window.firebaseProvider ? 'OK' : 'Falha');
             
             let currentUser = null;
             let selectedTeam = null;
@@ -1170,7 +1232,7 @@
                     const querySnapshot = await getDocs(q);
                     const count = querySnapshot.size;
                     
-                    console.log(`📊 Time ${team} no evento ${date} ${time}: ${count}/${maxVolunteers} voluntários`);
+                    logger.log(`📊 Time ${team} no evento ${date} ${time}: ${count}/${maxVolunteers} voluntários`);
                     
                     return {
                         count: count,
@@ -1959,34 +2021,74 @@
                 });
             }
 
+            // Validar campos do formulário admin com feedback visual
+            function validateAdminFields() {
+                let isValid = true;
+                
+                // Validar data
+                const dateInput = document.getElementById('admin-new-date');
+                const dateError = document.getElementById('date-error');
+                if (!dateInput.value) {
+                    dateInput.classList.add('border-red-500');
+                    dateError.textContent = 'Data é obrigatória';
+                    dateError.classList.remove('hidden');
+                    isValid = false;
+                } else {
+                    const now = new Date();
+                    const eventDateTime = new Date(dateInput.value + 'T' + (document.getElementById('admin-new-time').value || '00:00'));
+                    const oneHourFromNow = new Date(now.getTime() + (60 * 60 * 1000));
+                    
+                    if (eventDateTime < oneHourFromNow) {
+                        dateInput.classList.add('border-red-500');
+                        dateError.textContent = 'Data deve ser futura (mínimo 1 hora)';
+                        dateError.classList.remove('hidden');
+                        isValid = false;
+                    } else {
+                        dateInput.classList.remove('border-red-500');
+                        dateError.classList.add('hidden');
+                    }
+                }
+                
+                // Validar limite de voluntários
+                const limitInput = document.getElementById('admin-max-volunteers');
+                const limitError = document.getElementById('limit-error');
+                const limit = parseInt(limitInput.value);
+                if (!limit || limit < 1 || limit > 10) {
+                    limitInput.classList.add('border-red-500');
+                    limitError.textContent = 'Limite deve estar entre 1 e 10';
+                    limitError.classList.remove('hidden');
+                    isValid = false;
+                } else {
+                    limitInput.classList.remove('border-red-500');
+                    limitError.classList.add('hidden');
+                }
+                
+                return isValid;
+            }
+            
+            // Limpar erros de validação ao digitar
+            document.getElementById('admin-new-date')?.addEventListener('input', () => {
+                document.getElementById('admin-new-date').classList.remove('border-red-500');
+                document.getElementById('date-error').classList.add('hidden');
+            });
+            
+            document.getElementById('admin-max-volunteers')?.addEventListener('input', () => {
+                document.getElementById('admin-max-volunteers').classList.remove('border-red-500');
+                document.getElementById('limit-error').classList.add('hidden');
+            });
+
             // Adicionar nova data (apenas admin)
             async function addNewDate() {
+                // Validar campos com feedback visual
+                if (!validateAdminFields()) {
+                    return;
+                }
+                
                 const dateInput = document.getElementById('admin-new-date').value;
                 const timeInput = document.getElementById('admin-new-time').value;
                 const eventInput = document.getElementById('admin-new-event').value.trim();
                 const maxVolunteersInput = document.getElementById('admin-max-volunteers').value;
-                
-                if (!dateInput) {
-                    showModal('Por favor, preencha a data!');
-                    return;
-                }
-                
-                // Validar limite de voluntários
                 const maxVolunteers = parseInt(maxVolunteersInput) || 4;
-                if (maxVolunteers < 1 || maxVolunteers > 10) {
-                    showModal('O limite deve estar entre 1 e 10 voluntários!', false, null, false, null, '⚠️');
-                    return;
-                }
-                
-                // Validar que é data futura (mínimo 1 hora)
-                const now = new Date();
-                const eventDateTime = new Date(dateInput + 'T' + (timeInput || '00:00'));
-                const oneHourFromNow = new Date(now.getTime() + (60 * 60 * 1000));
-                
-                if (eventDateTime < oneHourFromNow) {
-                    showModal('Não é possível criar eventos passados ou com menos de 1 hora de antecedência!', false, null, false, null, '⚠️');
-                    return;
-                }
                 
                 // Formatar data para exibição (dd/mm)
                 const dateObj = new Date(dateInput + 'T12:00:00');
@@ -2011,30 +2113,78 @@
                     return;
                 }
                 
-                // Adicionar à lista com maxVolunteers
-                availableDates.push({ value, text, maxVolunteers });
+                // Confirmação antes de adicionar
+                showModal(
+                    `Confirmar criação do evento?<br><br><strong>${text}</strong><br>Limite: ${maxVolunteers} voluntários/time`,
+                    true,
+                    async () => {
+                        try {
+                            // Adicionar à lista com maxVolunteers e schema version
+                            availableDates.push({ 
+                                value, 
+                                text, 
+                                maxVolunteers,
+                                schemaVersion: CONFIG.SCHEMA_VERSION,
+                                createdAt: new Date().toISOString(),
+                                createdBy: currentUser?.email || 'unknown'
+                            });
+                            
+                            // Salvar no Firestore com retry
+                            await firestoreRetry(async () => {
+                                const { doc, setDoc } = window.firestoreMethods;
+                                await setDoc(doc(window.firebaseDb, 'config', 'availableDates'), { 
+                                    dates: availableDates,
+                                    lastUpdated: new Date().toISOString(),
+                                    version: CONFIG.SCHEMA_VERSION
+                                });
+                            }, 'Salvar evento');
+                            
+                            // Backup se habilitado
+                            if (CONFIG.BACKUP_ENABLED) {
+                                await backupData('eventCreated', { value, text, maxVolunteers });
+                            }
+                            
+                            showModal('Data adicionada com sucesso!');
+                            
+                            // Limpar campos
+                            document.getElementById('admin-new-date').value = '';
+                            document.getElementById('admin-new-time').value = '';
+                            document.getElementById('admin-new-event').value = '';
+                            document.getElementById('admin-max-volunteers').value = '4';
+                            
+                            // Atualizar lista
+                            renderAdminDatesList();
+                            await loadUserEscalas();
+                            await loadAllEscalas();
+                            
+                        } catch (error) {
+                            logger.error('❌ Erro ao salvar data:', error);
+                            showModal('Erro ao adicionar data. Verifique sua conexão e tente novamente.', false, null, false, null, '❌');
+                        }
+                    },
+                    false,
+                    null,
+                    '❓'
+                );
+            }
+
+            // Sistema de backup automático
+            async function backupData(action, data) {
+                if (!CONFIG.BACKUP_ENABLED) return;
                 
-                // Salvar no Firestore
                 try {
-                    const { doc, setDoc } = window.firestoreMethods;
-                    await setDoc(doc(window.firebaseDb, 'config', 'availableDates'), { dates: availableDates });
-                    
-                    showModal('Data adicionada com sucesso!');
-                    
-                    // Limpar campos
-                    document.getElementById('admin-new-date').value = '';
-                    document.getElementById('admin-new-time').value = '';
-                    document.getElementById('admin-new-event').value = '';
-                    document.getElementById('admin-max-volunteers').value = '4';
-                    
-                    // Atualizar lista
-                    renderAdminDatesList();
-                    await loadUserEscalas(); // Atualizar dropdown do usuário atual
-                    await loadAllEscalas(); // Atualizar visão geral
-                    
+                    const { collection, addDoc } = window.firestoreMethods;
+                    await addDoc(collection(window.firebaseDb, 'backups'), {
+                        action: action,
+                        data: data,
+                        user: currentUser?.email || 'unknown',
+                        timestamp: new Date().toISOString(),
+                        schemaVersion: CONFIG.SCHEMA_VERSION
+                    });
+                    logger.log('💾 Backup criado:', action);
                 } catch (error) {
-                    console.error('❌ Erro ao salvar data:', error);
-                    showModal('Erro ao adicionar data. Tente novamente.');
+                    logger.error('❌ Erro ao criar backup:', error);
+                    // Não bloquear operação se backup falhar
                 }
             }
 
