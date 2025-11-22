@@ -166,8 +166,8 @@
             50% { border: 10px solid #cdc8c0; }
         }
         .pulse-team {
-            animation: pulse-team 1s ease-in-out 2;
-            -webkit-animation: pulse-team 1s ease-in-out 2;
+            animation: pulse-team 0.5s ease-in-out 2;
+            -webkit-animation: pulse-team 0.5s ease-in-out 2;
         }
         @keyframes pulse-save {
             0%, 100% { border: 2px solid transparent; }
@@ -475,6 +475,11 @@
                         <label class="block text-sm font-semibold mb-1" style="color: #151b29;">Nome do Evento (opcional)</label>
                         <input type="text" id="admin-new-event" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="Ex: Culto de Domingo, Quinta do Encontro, etc.">
                     </div>
+                    <div class="mb-3">
+                        <label class="block text-sm font-semibold mb-1" style="color: #151b29;">Limite Máximo por Time</label>
+                        <input type="number" id="admin-max-volunteers" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="Ex: 4" min="1" max="10" value="4">
+                        <p class="text-xs text-gray-500 mt-1">Número máximo de voluntários por time para este evento</p>
+                    </div>
                     <button id="admin-add-date-btn" class="w-full zele-btn text-white font-bold py-3 px-6 rounded-lg">
                         ➕ Adicionar Data
                     </button>
@@ -608,6 +613,24 @@
             <button id="close-ios-modal" class="w-full bg-indigo-600 text-white px-4 py-3 rounded-lg hover:bg-indigo-700 transition-colors font-semibold">
                 Entendi
             </button>
+        </div>
+    </div>
+
+    <!-- Modal de Tentativas Bloqueadas -->
+    <div id="blocked-attempts-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 max-h-[80vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">⚠️ Tentativas Bloqueadas</h2>
+                <button id="close-blocked-modal" class="text-gray-600 hover:text-gray-800">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <p class="text-sm text-gray-600 mb-4">Voluntários que tentaram deletar escalas dentro do período de 48 horas:</p>
+            <div id="blocked-attempts-list" class="space-y-3">
+                <!-- Lista será preenchida dinamicamente -->
+            </div>
         </div>
     </div>
 
@@ -904,6 +927,11 @@
                 }
             });
 
+            // Fechar modal iOS
+            document.getElementById('close-ios-modal')?.addEventListener('click', () => {
+                document.getElementById('ios-install-modal').classList.add('hidden');
+            });
+
             // Seleção de time
             elements.teamBtns.forEach(btn => {
                 btn.addEventListener('click', () => {
@@ -993,7 +1021,7 @@
             // Função para animar botões dos times em sequência (horário)
             function animateTeamButtonsSequence() {
                 const teamOrder = ['welcome', 'backstage', 'parking', 'kids'];
-                const delay = 2000; // tempo total da animação (2 piscadas x 1s = 2s)
+                const delay = 1000; // tempo total da animação (2 piscadas x 0.5s = 1s)
                 
                 teamOrder.forEach((teamName, index) => {
                     setTimeout(() => {
@@ -1002,7 +1030,7 @@
                             btn.classList.add('pulse-team');
                             setTimeout(() => {
                                 btn.classList.remove('pulse-team');
-                            }, 2000); // 2 piscadas x 1s = 2s
+                            }, 1000); // 2 piscadas x 0.5s = 1s
                         }
                     }, index * delay);
                 });
@@ -1123,6 +1151,14 @@
             // Verificar limite de voluntários no time (máximo 4 por time por evento)
             async function checkTeamLimit(date, time, team) {
                 try {
+                    // Buscar o maxVolunteers do evento específico
+                    const eventKey = availableDates.find(d => {
+                        const [eventDate, eventTime] = d.value.split('|');
+                        return eventDate === date && eventTime === time;
+                    });
+                    
+                    const maxVolunteers = eventKey?.maxVolunteers || 4; // Padrão 4 se não encontrar
+                    
                     const { collection, query, where, getDocs } = window.firestoreMethods;
                     const q = query(
                         collection(window.firebaseDb, 'escalas'),
@@ -1134,16 +1170,17 @@
                     const querySnapshot = await getDocs(q);
                     const count = querySnapshot.size;
                     
-                    console.log(`📊 Time ${team} no evento ${date} ${time}: ${count}/4 voluntários`);
+                    console.log(`📊 Time ${team} no evento ${date} ${time}: ${count}/${maxVolunteers} voluntários`);
                     
                     return {
                         count: count,
-                        isFull: count >= 4,
-                        remaining: Math.max(0, 4 - count)
+                        isFull: count >= maxVolunteers,
+                        remaining: Math.max(0, maxVolunteers - count),
+                        maxVolunteers: maxVolunteers
                     };
                 } catch (error) {
                     console.error('❌ Erro ao verificar limite do time:', error);
-                    return { count: 0, isFull: false, remaining: 4 };
+                    return { count: 0, isFull: false, remaining: 4, maxVolunteers: 4 };
                 }
             }
 
@@ -1190,8 +1227,23 @@
                     
                     // Se time está cheio E usuário não está mudando de time (nova entrada)
                     if (teamLimit.isFull && !isChangingTeam) {
+                        // Formatar data e horário para exibir
+                        const dateObj = new Date(date + 'T' + time);
+                        const dateStr = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+                        const timeStr = time;
+                        const eventDisplay = eventName ? ` - ${eventName}` : '';
+                        
+                        // Criar elemento de mensagem com HTML
+                        const message = document.createElement('div');
+                        message.innerHTML = `
+                            <p>Obrigado pela sua disponibilidade! 😊</p>
+                            <p>O time <strong>${teamNames[team]}</strong> já está com a escala completa para:</p>
+                            <p class="mt-2 mb-2"><strong>${dateStr}${eventDisplay} às ${timeStr}</strong></p>
+                            <p>Por favor, escolha outro time para servir.</p>
+                        `;
+                        
                         showModal(
-                            `Obrigado pela sua disponibilidade! 😊 O time ${teamNames[team]} já está com a escala completa para este evento. Por favor, escolha outro time para servir.`,
+                            message.innerHTML,
                             false,
                             null,
                             false,
@@ -1432,24 +1484,40 @@
                     
                     if (datesDoc.exists()) {
                         availableDates = datesDoc.data().dates || [];
+                        
+                        // Adicionar maxVolunteers padrão se não existir (retrocompatibilidade)
+                        availableDates = availableDates.map(date => ({
+                            ...date,
+                            maxVolunteers: date.maxVolunteers || 4
+                        }));
+                        
+                        // Filtrar apenas eventos futuros
+                        const now = new Date();
+                        availableDates = availableDates.filter(d => {
+                            const [date, time] = d.value.split('|');
+                            const eventDateTime = new Date(date + 'T' + time);
+                            return eventDateTime > now;
+                        });
+                        
+                        console.log(`🧹 ${availableDates.length} eventos futuros carregados`);
                     } else {
-                        // Datas padrão iniciais
+                        // Datas padrão iniciais com maxVolunteers
                         availableDates = [
-                            { value: "2025-11-20|19:00|Quinta", text: "20/11 Quinta (chegar 19h)" },
-                            { value: "2025-11-23|09:00|Domingo", text: "23/11 Domingo (chegar 09h)" },
-                            { value: "2025-11-27|19:00|Quinta", text: "27/11 Quinta (chegar 19h)" },
-                            { value: "2025-11-30|09:00|Domingo", text: "30/11 Domingo (chegar 09h)" },
-                            { value: "2025-12-04|19:00|Quinta", text: "04/12 Quinta (chegar 19h)" },
-                            { value: "2025-12-07|09:00|Domingo", text: "07/12 Domingo (chegar 09h)" },
-                            { value: "2025-12-11|19:00|Quinta - Pré Inauguração", text: "11/12 Quinta | Pré Inauguração (chegar 19h)" },
-                            { value: "2025-12-12|19:00|Sexta - Ensaio Geral", text: "12/12 Sexta | Ensaio Geral (chegar 19h)" },
-                            { value: "2025-12-13|00:00|Sábado - Inauguração", text: "13/12 Sábado | Inauguração (horário a definir)" },
-                            { value: "2025-12-14|09:00|Domingo - Batismo", text: "14/12 Domingo | Batismo (chegar 9h)" },
-                            { value: "2025-12-18|19:00|Quinta do Encontro", text: "18/12 Quinta do Encontro (chegar 19h)" },
-                            { value: "2025-12-21|09:00|Domingo", text: "21/12 Culto de Domingo (chegar 09h)" },
-                            { value: "2025-12-25|19:00|Quinta - Natal", text: "25/12 Quinta (chegar 19h)" },
-                            { value: "2025-12-28|09:00|Domingo", text: "28/12 Domingo (chegar 09h)" },
-                            { value: "2025-12-31|00:00|Culto da Virada", text: "31/12 Culto da Virada (horário a definir)" }
+                            { value: "2025-11-20|19:00|Quinta", text: "20/11 Quinta (chegar 19h)", maxVolunteers: 4 },
+                            { value: "2025-11-23|09:00|Domingo", text: "23/11 Domingo (chegar 09h)", maxVolunteers: 4 },
+                            { value: "2025-11-27|19:00|Quinta", text: "27/11 Quinta (chegar 19h)", maxVolunteers: 4 },
+                            { value: "2025-11-30|09:00|Domingo", text: "30/11 Domingo (chegar 09h)", maxVolunteers: 4 },
+                            { value: "2025-12-04|19:00|Quinta", text: "04/12 Quinta (chegar 19h)", maxVolunteers: 4 },
+                            { value: "2025-12-07|09:00|Domingo", text: "07/12 Domingo (chegar 09h)", maxVolunteers: 4 },
+                            { value: "2025-12-11|19:00|Quinta - Pré Inauguração", text: "11/12 Quinta | Pré Inauguração (chegar 19h)", maxVolunteers: 4 },
+                            { value: "2025-12-12|19:00|Sexta - Ensaio Geral", text: "12/12 Sexta | Ensaio Geral (chegar 19h)", maxVolunteers: 4 },
+                            { value: "2025-12-13|00:00|Sábado - Inauguração", text: "13/12 Sábado | Inauguração (horário a definir)", maxVolunteers: 6 },
+                            { value: "2025-12-14|09:00|Domingo - Batismo", text: "14/12 Domingo | Batismo (chegar 9h)", maxVolunteers: 4 },
+                            { value: "2025-12-18|19:00|Quinta do Encontro", text: "18/12 Quinta do Encontro (chegar 19h)", maxVolunteers: 4 },
+                            { value: "2025-12-21|09:00|Domingo", text: "21/12 Culto de Domingo (chegar 09h)", maxVolunteers: 4 },
+                            { value: "2025-12-25|19:00|Quinta - Natal", text: "25/12 Quinta (chegar 19h)", maxVolunteers: 4 },
+                            { value: "2025-12-28|09:00|Domingo", text: "28/12 Domingo (chegar 09h)", maxVolunteers: 4 },
+                            { value: "2025-12-31|00:00|Culto da Virada", text: "31/12 Culto da Virada (horário a definir)", maxVolunteers: 6 }
                         ];
                         
                         // Salvar datas padrão no Firestore
@@ -1476,8 +1544,8 @@
                 console.log('🔍 Datas disponíveis:', availableDates.length);
                 console.log('🔍 Escalas do usuário:', escalas.length);
 
-                // Criar set com datas já escaladas
-                const escaladasDates = new Set(escalas.map(e => e.date));
+                // Criar set com data+hora já escaladas (formato: date_time)
+                const escaladasDateTimes = new Set(escalas.map(e => `${e.date}_${e.time}`));
                 
                 // Data/hora atual
                 const now = new Date();
@@ -1506,8 +1574,9 @@
 
                 // Adicionar apenas opções não escaladas e futuras (já ordenadas)
                 sortedDates.forEach(option => {
-                    const dateValue = option.value.split('|')[0];
-                    if (!escaladasDates.has(dateValue)) {
+                    const [date, time] = option.value.split('|');
+                    const dateTimeKey = `${date}_${time}`;
+                    if (!escaladasDateTimes.has(dateTimeKey)) {
                         const optionElement = document.createElement('option');
                         optionElement.value = option.value;
                         optionElement.textContent = option.text;
@@ -1667,12 +1736,23 @@
                 
                 filter.innerHTML = '<option value="">Todas as datas</option>';
                 
+                // Agrupar por data única (sem hora)
+                const uniqueDates = new Map();
                 dates.forEach(key => {
                     const data = grouped[key];
-                    const dateObj = new Date(data.date + 'T12:00:00');
+                    const dateOnly = data.date; // Apenas YYYY-MM-DD
+                    if (!uniqueDates.has(dateOnly)) {
+                        uniqueDates.set(dateOnly, []);
+                    }
+                    uniqueDates.get(dateOnly).push(key);
+                });
+                
+                // Criar opções por data única
+                uniqueDates.forEach((keys, dateOnly) => {
+                    const dateObj = new Date(dateOnly + 'T12:00:00');
                     const dateStr = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
                     const option = document.createElement('option');
-                    option.value = key;
+                    option.value = keys.join(','); // Múltiplas chaves separadas por vírgula
                     option.textContent = dateStr;
                     filter.appendChild(option);
                 });
@@ -1680,9 +1760,16 @@
             
             // Event listener para filtro de Visão Geral
             elements.filterVisaoGeral.addEventListener('change', () => {
-                const selectedKey = elements.filterVisaoGeral.value;
-                if (selectedKey) {
-                    const filtered = { [selectedKey]: allEscalasGrouped[selectedKey] };
+                const selectedValue = elements.filterVisaoGeral.value;
+                if (selectedValue) {
+                    // Pode ter múltiplas chaves (eventos no mesmo dia)
+                    const keys = selectedValue.split(',');
+                    const filtered = {};
+                    keys.forEach(key => {
+                        if (allEscalasGrouped[key]) {
+                            filtered[key] = allEscalasGrouped[key];
+                        }
+                    });
                     renderAdminView(filtered);
                 } else {
                     renderAdminView(allEscalasGrouped);
@@ -1877,9 +1964,17 @@
                 const dateInput = document.getElementById('admin-new-date').value;
                 const timeInput = document.getElementById('admin-new-time').value;
                 const eventInput = document.getElementById('admin-new-event').value.trim();
+                const maxVolunteersInput = document.getElementById('admin-max-volunteers').value;
                 
                 if (!dateInput) {
                     showModal('Por favor, preencha a data!');
+                    return;
+                }
+                
+                // Validar limite de voluntários
+                const maxVolunteers = parseInt(maxVolunteersInput) || 4;
+                if (maxVolunteers < 1 || maxVolunteers > 10) {
+                    showModal('O limite deve estar entre 1 e 10 voluntários!', false, null, false, null, '⚠️');
                     return;
                 }
                 
@@ -1916,8 +2011,8 @@
                     return;
                 }
                 
-                // Adicionar à lista
-                availableDates.push({ value, text });
+                // Adicionar à lista com maxVolunteers
+                availableDates.push({ value, text, maxVolunteers });
                 
                 // Salvar no Firestore
                 try {
@@ -1930,6 +2025,7 @@
                     document.getElementById('admin-new-date').value = '';
                     document.getElementById('admin-new-time').value = '';
                     document.getElementById('admin-new-event').value = '';
+                    document.getElementById('admin-max-volunteers').value = '4';
                     
                     // Atualizar lista
                     renderAdminDatesList();
