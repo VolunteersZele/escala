@@ -2926,12 +2926,28 @@
                 if (!confirmation) return;
                 
                 try {
-                    const { doc, setDoc } = window.firestoreMethods;
+                    const { doc, setDoc, getDoc, updateDoc } = window.firestoreMethods;
                     const newRole = isCurrentlyAdmin ? 'user' : 'admin';
                     
-                    await setDoc(doc(window.firebaseDb, 'users', userId), {
-                        role: newRole
-                    }, { merge: true });
+                    // Buscar dados atuais do usuário
+                    const userDocRef = doc(window.firebaseDb, 'users', userId);
+                    const userDoc = await getDoc(userDocRef);
+                    
+                    if (userDoc.exists()) {
+                        // Atualizar apenas o campo role
+                        await setDoc(userDocRef, {
+                            ...userDoc.data(),
+                            role: newRole
+                        });
+                    } else {
+                        // Se não existe, criar documento básico
+                        await setDoc(userDocRef, {
+                            role: newRole,
+                            displayName: userName,
+                            email: userName, // Fallback
+                            createdAt: new Date().toISOString()
+                        });
+                    }
                     
                     const successMessage = isCurrentlyAdmin 
                         ? `✅ Permissões de administrador removidas de ${userName}`
@@ -2940,10 +2956,11 @@
                     showModal(successMessage);
                     
                     // Recarregar lista
-                    loadUsersList();
+                    await loadUsersList();
                     
                 } catch (error) {
                     console.error('❌ Erro ao alterar status:', error);
+                    console.error('Detalhes do erro:', error.message);
                     showModal('❌ Erro ao alterar status de administrador. Tente novamente.');
                 }
             }
