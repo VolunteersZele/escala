@@ -2812,13 +2812,21 @@
                     const { collection, getDocs } = window.firestoreMethods;
                     const usersList = document.getElementById('users-list');
                     
-                    // Buscar usuários da coleção users
-                    const usersSnapshot = await getDocs(collection(window.firebaseDb, 'users'));
-                    const usersMap = new Map();
+                    // Mostrar loading
+                    usersList.innerHTML = '<div class="text-center py-8"><div class="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 mx-auto"></div><p class="text-gray-600 mt-4">Carregando usuários...</p></div>';
                     
+                    // Buscar APENAS usuários da coleção users (fonte única e confiável)
+                    const usersSnapshot = await getDocs(collection(window.firebaseDb, 'users'));
+                    
+                    if (usersSnapshot.empty) {
+                        usersList.innerHTML = '<p class="text-center text-gray-500 py-8">Nenhum usuário encontrado no sistema.</p>';
+                        return;
+                    }
+                    
+                    const users = [];
                     usersSnapshot.forEach(doc => {
                         const data = doc.data();
-                        usersMap.set(doc.id, {
+                        users.push({
                             id: doc.id,
                             email: data.email || 'Sem email',
                             displayName: data.displayName || data.email?.split('@')[0] || 'Sem nome',
@@ -2827,28 +2835,7 @@
                         });
                     });
                     
-                    // Buscar também usuários que fizeram escalas mas não estão em users
-                    const escalasSnapshot = await getDocs(collection(window.firebaseDb, 'escalas'));
-                    escalasSnapshot.forEach(doc => {
-                        const data = doc.data();
-                        if (data.userId && !usersMap.has(data.userId)) {
-                            usersMap.set(data.userId, {
-                                id: data.userId,
-                                email: data.userEmail || 'Sem email',
-                                displayName: data.userName || data.userEmail?.split('@')[0] || 'Sem nome',
-                                photoURL: data.userPhoto || '',
-                                role: 'user'
-                            });
-                        }
-                    });
-                    
-                    if (usersMap.size === 0) {
-                        usersList.innerHTML = '<p class="text-center text-gray-500 py-8">Nenhum usuário encontrado no sistema.</p>';
-                        return;
-                    }
-                    
-                    // Converter Map para array e ordenar
-                    const users = Array.from(usersMap.values());
+                    // Ordenar por nome
                     users.sort((a, b) => {
                         const nameA = a.displayName || a.email || '';
                         const nameB = b.displayName || b.email || '';
