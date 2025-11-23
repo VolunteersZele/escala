@@ -138,6 +138,18 @@
             height: auto;
             display: block;
         }
+        .team-btn .team-name-fallback {
+            display: none;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            text-align: center;
+            padding: 2rem 1rem;
+            background-color: #151b29;
+        }
+        .team-btn img.error + .team-name-fallback {
+            display: block;
+        }
         @keyframes blink-border {
             0%, 100% { 
                 box-shadow: 0 0 0 0px #377db8;
@@ -386,22 +398,26 @@
                         <button class="team-btn rounded-lg" data-team="welcome" 
                                 data-img-normal="https://github.com/VolunteersZele/escala/blob/main/Logo%20Welcome%20horizontal.png?raw=true"
                                 data-img-selected="https://github.com/VolunteersZele/escala/blob/main/Welcome%20azul%20claro.png?raw=true">
-                            <img src="https://github.com/VolunteersZele/escala/blob/main/Logo%20Welcome%20horizontal.png?raw=true" alt="Welcome">
+                            <img src="https://github.com/VolunteersZele/escala/blob/main/Logo%20Welcome%20horizontal.png?raw=true" alt="Welcome" onerror="this.classList.add('error');this.style.display='none';">
+                            <div class="team-name-fallback">WELCOME</div>
                         </button>
                         <button class="team-btn rounded-lg" data-team="backstage"
                                 data-img-normal="https://github.com/VolunteersZele/escala/blob/main/Logo%20Backstage%20horizontal.png?raw=true"
                                 data-img-selected="https://github.com/VolunteersZele/escala/blob/main/Backstage%20azul%20claro.png?raw=true">
-                            <img src="https://github.com/VolunteersZele/escala/blob/main/Logo%20Backstage%20horizontal.png?raw=true" alt="Backstage">
+                            <img src="https://github.com/VolunteersZele/escala/blob/main/Logo%20Backstage%20horizontal.png?raw=true" alt="Backstage" onerror="this.classList.add('error');this.style.display='none';">
+                            <div class="team-name-fallback">BACKSTAGE</div>
                         </button>
                         <button class="team-btn rounded-lg" data-team="parking"
                                 data-img-normal="https://github.com/VolunteersZele/escala/blob/main/Logo%20Parking%20horizontal.png?raw=true"
                                 data-img-selected="https://github.com/VolunteersZele/escala/blob/main/Parking%20azul%20claro.png?raw=true">
-                            <img src="https://github.com/VolunteersZele/escala/blob/main/Logo%20Parking%20horizontal.png?raw=true" alt="Parking">
+                            <img src="https://github.com/VolunteersZele/escala/blob/main/Logo%20Parking%20horizontal.png?raw=true" alt="Parking" onerror="this.classList.add('error');this.style.display='none';">
+                            <div class="team-name-fallback">PARKING</div>
                         </button>
                         <button class="team-btn rounded-lg" data-team="kids"
                                 data-img-normal="https://github.com/VolunteersZele/escala/blob/main/Logo%20Kids%20horizontal.png?raw=true"
                                 data-img-selected="https://github.com/VolunteersZele/escala/blob/main/Kids%20azul%20claro.png?raw=true">
-                            <img src="https://github.com/VolunteersZele/escala/blob/main/Logo%20Kids%20horizontal.png?raw=true" alt="Kids">
+                            <img src="https://github.com/VolunteersZele/escala/blob/main/Logo%20Kids%20horizontal.png?raw=true" alt="Kids" onerror="this.classList.add('error');this.style.display='none';">
+                            <div class="team-name-fallback">KIDS</div>
                         </button>
                     </div>
                 </div>
