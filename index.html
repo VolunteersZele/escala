@@ -1369,12 +1369,52 @@
                 }
             }
 
+            // Salvar dados do usuário no Firestore
+            async function saveUserToFirestore(user) {
+                try {
+                    const { doc, setDoc, getDoc } = window.firestoreMethods;
+                    const userDocRef = doc(window.firebaseDb, 'users', user.uid);
+                    const userDoc = await getDoc(userDocRef);
+                    
+                    // Preparar dados do usuário
+                    const userData = {
+                        email: user.email,
+                        displayName: user.displayName || user.email.split('@')[0],
+                        photoURL: user.photoURL || '',
+                        lastLogin: new Date().toISOString()
+                    };
+                    
+                    if (userDoc.exists()) {
+                        // Atualizar apenas dados do perfil, mantendo role
+                        const existingData = userDoc.data();
+                        await setDoc(userDocRef, {
+                            ...userData,
+                            role: existingData.role || 'user' // Preservar role existente
+                        });
+                        logger.log('✅ Dados do usuário atualizados');
+                    } else {
+                        // Criar novo documento com role padrão
+                        await setDoc(userDocRef, {
+                            ...userData,
+                            role: 'user',
+                            createdAt: new Date().toISOString()
+                        });
+                        logger.log('✅ Novo usuário criado no Firestore');
+                    }
+                } catch (error) {
+                    console.error('❌ Erro ao salvar usuário:', error);
+                }
+            }
+
             // Verificar se usuário é admin
             async function checkAdminStatus(user) {
                 if (!user) {
                     console.log('⚠️ Nenhum usuário para verificar admin');
                     return false;
                 }
+                
+                // Salvar/atualizar dados do usuário
+                await saveUserToFirestore(user);
                 
                 console.log('🔍 Verificando status de admin para:', user.email);
                 console.log('🔍 UID do usuário:', user.uid);
@@ -2770,21 +2810,45 @@
             async function loadUsersList() {
                 try {
                     const { collection, getDocs } = window.firestoreMethods;
-                    const usersSnapshot = await getDocs(collection(window.firebaseDb, 'users'));
-                    
                     const usersList = document.getElementById('users-list');
                     
-                    if (usersSnapshot.empty) {
+                    // Buscar usuários da coleção users
+                    const usersSnapshot = await getDocs(collection(window.firebaseDb, 'users'));
+                    const usersMap = new Map();
+                    
+                    usersSnapshot.forEach(doc => {
+                        const data = doc.data();
+                        usersMap.set(doc.id, {
+                            id: doc.id,
+                            email: data.email || 'Sem email',
+                            displayName: data.displayName || data.email?.split('@')[0] || 'Sem nome',
+                            photoURL: data.photoURL || '',
+                            role: data.role || 'user'
+                        });
+                    });
+                    
+                    // Buscar também usuários que fizeram escalas mas não estão em users
+                    const escalasSnapshot = await getDocs(collection(window.firebaseDb, 'escalas'));
+                    escalasSnapshot.forEach(doc => {
+                        const data = doc.data();
+                        if (data.userId && !usersMap.has(data.userId)) {
+                            usersMap.set(data.userId, {
+                                id: data.userId,
+                                email: data.userEmail || 'Sem email',
+                                displayName: data.userName || data.userEmail?.split('@')[0] || 'Sem nome',
+                                photoURL: data.userPhoto || '',
+                                role: 'user'
+                            });
+                        }
+                    });
+                    
+                    if (usersMap.size === 0) {
                         usersList.innerHTML = '<p class="text-center text-gray-500 py-8">Nenhum usuário encontrado no sistema.</p>';
                         return;
                     }
                     
-                    const users = [];
-                    usersSnapshot.forEach(doc => {
-                        users.push({ id: doc.id, ...doc.data() });
-                    });
-                    
-                    // Ordenar por nome
+                    // Converter Map para array e ordenar
+                    const users = Array.from(usersMap.values());
                     users.sort((a, b) => {
                         const nameA = a.displayName || a.email || '';
                         const nameB = b.displayName || b.email || '';
