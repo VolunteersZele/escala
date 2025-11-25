@@ -1607,7 +1607,7 @@
             // Função para animar botões dos times em sequência (horário)
             function animateTeamButtonsSequence() {
                 const teamOrder = ['welcome', 'backstage', 'parking', 'kids'];
-                const delay = 500; // tempo entre cada animação
+                const delay = 350; // tempo entre cada animação
                 
                 teamOrder.forEach((teamName, index) => {
                     setTimeout(() => {
@@ -1616,7 +1616,7 @@
                             btn.classList.add('pulse-team');
                             setTimeout(() => {
                                 btn.classList.remove('pulse-team');
-                            }, 800); // duração da animação
+                            }, 600); // duração da animação
                         }
                     }, index * delay);
                 });
