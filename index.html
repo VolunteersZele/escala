@@ -198,8 +198,8 @@
             50% { border: 10px solid #cdc8c0; }
         }
         .pulse-team {
-            animation: pulse-team 0.5s ease-in-out 1;
-            -webkit-animation: pulse-team 0.5s ease-in-out 1;
+            animation: pulse-team 0.8s ease-in-out 1;
+            -webkit-animation: pulse-team 0.8s ease-in-out 1;
         }
         @keyframes pulse-save {
             0%, 100% { border: 2px solid transparent; }
@@ -628,16 +628,17 @@
 
             <!-- Grid de Gráficos -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- Gráfico 1: Eventos com Times Vazios (ALERTA) -->
+                <!-- Gráfico 1: Times com Menos de 5 Voluntários (ALERTA) -->
                 <div class="card-float rounded-xl p-6">
-                    <h3 class="font-bold text-lg mb-4" style="color: #151b29;">🚨 Eventos com Times Vazios</h3>
-                    <div class="h-64">
+                    <h3 class="font-bold text-lg mb-4" style="color: #151b29;">🚨 Times com Menos de 5 Voluntários</h3>
+                    <div class="h-64 cursor-pointer" title="Clique nas barras para ver detalhes">
                         <canvas id="chart-empty-teams"></canvas>
                     </div>
                     <p class="text-xs text-gray-500 mt-3">
-                        <span class="inline-block w-3 h-3 bg-green-500 rounded mr-1"></span> 0 times vazios
-                        <span class="inline-block w-3 h-3 bg-yellow-500 rounded mr-1 ml-3"></span> 1-2 times vazios
-                        <span class="inline-block w-3 h-3 bg-red-500 rounded mr-1 ml-3"></span> 3-4 times vazios
+                        <span class="inline-block w-3 h-3 rounded mr-1" style="background-color: rgba(254, 240, 138, 0.8);"></span> 1 time
+                        <span class="inline-block w-3 h-3 rounded mr-1 ml-3" style="background-color: rgba(234, 179, 8, 0.8);"></span> 2 times
+                        <span class="inline-block w-3 h-3 rounded mr-1 ml-3" style="background-color: rgba(249, 115, 22, 0.8);"></span> 3 times
+                        <span class="inline-block w-3 h-3 rounded mr-1 ml-3" style="background-color: rgba(239, 68, 68, 0.8);"></span> 4 times
                     </p>
                 </div>
 
@@ -666,6 +667,30 @@
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- Popup de Detalhes do Evento (Gráfico 4) -->
+    <div id="chart4-popup-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 relative">
+            <button id="chart4-popup-close" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+            
+            <h3 class="text-xl font-bold mb-2" style="color: #151b29;" id="chart4-popup-title">Detalhes do Evento</h3>
+            <p class="text-sm text-gray-600 mb-4" id="chart4-popup-date"></p>
+            
+            <div class="space-y-3" id="chart4-popup-teams">
+                <!-- Times serão inseridos aqui -->
+            </div>
+            
+            <div class="mt-6 pt-4 border-t border-gray-200">
+                <p class="text-xs text-gray-500 text-center">
+                    💡 Times com menos de 5 voluntários podem precisar de atenção
+                </p>
+            </div>
+        </div>
     </div>
 
     <!-- Menu Lateral -->
@@ -1430,60 +1455,63 @@
                 document.getElementById('photo-upload-input').click();
             });
 
-            // Upload de foto de perfil
+            // Upload de foto de perfil (usando Base64 no Firestore - Grátis)
             document.getElementById('photo-upload-input')?.addEventListener('change', async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
                 
                 // Validar tipo de arquivo
                 if (!file.type.startsWith('image/')) {
-                    showModal('❌ Por favor, selecione uma imagem válida.', false, null, true);
+                    showModal('❌ Por favor, selecione uma imagem válida.');
+                    e.target.value = '';
                     return;
                 }
                 
-                // Validar tamanho (máximo 5MB)
-                if (file.size > 5 * 1024 * 1024) {
-                    showModal('❌ A imagem deve ter no máximo 5MB.', false, null, true);
+                // Validar tamanho (máximo 200KB para Base64 otimizado)
+                if (file.size > 200 * 1024) {
+                    showModal('❌ A imagem deve ter no máximo 200KB.<br><br>💡 Dica: Use um compressor online gratuito:<br>• <a href="https://tinypng.com" target="_blank" style="color: #377db8;">tinypng.com</a><br>• <a href="https://compressor.io" target="_blank" style="color: #377db8;">compressor.io</a>');
+                    e.target.value = '';
                     return;
                 }
                 
                 try {
                     showLoading();
-                    console.log('📸 Fazendo upload da foto...');
+                    console.log('📸 Processando foto...');
                     
-                    // Upload para Firebase Storage
-                    const { ref, uploadBytes, getDownloadURL } = window.firebaseStorageMethods;
-                    const storageRef = ref(window.firebaseStorage, `profile-photos/${currentUser.uid}/${Date.now()}_${file.name}`);
+                    // Converter imagem para Base64
+                    const photoBase64 = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                    });
                     
-                    await uploadBytes(storageRef, file);
-                    const photoURL = await getDownloadURL(storageRef);
+                    console.log('✅ Foto convertida para Base64 (' + Math.round(photoBase64.length / 1024) + 'KB)');
                     
-                    console.log('✅ Foto enviada:', photoURL);
-                    
-                    // Atualizar perfil no Firebase Auth
-                    const { updateProfile } = window.firebaseAuthMethods;
-                    await updateProfile(currentUser, { photoURL });
-                    
-                    // Atualizar no Firestore
+                    // Salvar apenas no Firestore (Firebase Auth tem limite de tamanho)
+                    console.log('💾 Salvando no Firestore...');
                     const { doc, updateDoc } = window.firestoreMethods;
                     await updateDoc(doc(window.firebaseDb, 'users', currentUser.uid), {
-                        photoURL: photoURL,
+                        photoURL: photoBase64,
                         updatedAt: new Date().toISOString()
                     });
                     
-                    // Atualizar UI
-                    elements.userPhoto.src = photoURL;
-                    elements.menuUserPhoto.src = photoURL;
+                    // Atualizar currentUser em memória
+                    currentUser.photoURL = photoBase64;
                     
-                    hideLoading();
-                    showModal('✅ Foto de perfil atualizada com sucesso!', false, null, false);
+                    console.log('✅ Foto de perfil atualizada com sucesso');
                     
-                    console.log('✅ Foto de perfil atualizada');
+                    // Fechar loading e recarregar app após modal ser fechado
+                    showModal('✅ Foto de perfil atualizada com sucesso!', false, null, false, () => {
+                        hideLoading();
+                        window.location.reload();
+                    });
                     
                 } catch (error) {
                     console.error('❌ Erro ao fazer upload da foto:', error);
+                    console.error('Stack:', error.stack);
                     hideLoading();
-                    showModal(`❌ Erro ao atualizar foto: ${error.message}`, false, null, true);
+                    showModal(`❌ Erro ao atualizar foto: ${error.message}`);
                 }
                 
                 // Limpar input
@@ -1588,7 +1616,7 @@
                             btn.classList.add('pulse-team');
                             setTimeout(() => {
                                 btn.classList.remove('pulse-team');
-                            }, 200); // 1 piscada x 0.2s = 0.2s
+                            }, 400); // 1 piscada x 0.4s = 0.4s
                         }
                     }, index * delay);
                 });
@@ -1637,16 +1665,23 @@
                     const userData = {
                         email: user.email,
                         displayName: user.displayName || user.email.split('@')[0],
-                        photoURL: user.photoURL || '',
                         lastLogin: new Date().toISOString(),
                         lastLoginFormatted: new Date().toLocaleString('pt-BR')
                     };
                     
                     if (userDoc.exists()) {
-                        // Atualizar apenas dados do perfil, mantendo role e blocked
+                        // Atualizar apenas dados do perfil, mantendo role, blocked e photoURL
                         const existingData = userDoc.data();
+                        
+                        // Se existe photoURL no Firestore, usar ele (Base64)
+                        // Se não, usar do Firebase Auth (Google login)
+                        if (existingData.photoURL) {
+                            user.photoURL = existingData.photoURL;
+                        }
+                        
                         await setDoc(userDocRef, {
                             ...userData,
+                            photoURL: existingData.photoURL || user.photoURL || '',
                             role: existingData.role || 'user', // Preservar role existente
                             blocked: existingData.blocked || false, // Preservar status de bloqueio
                             createdAt: existingData.createdAt || new Date().toISOString()
@@ -1656,6 +1691,7 @@
                         // Criar novo documento com role padrão
                         await setDoc(userDocRef, {
                             ...userData,
+                            photoURL: user.photoURL || '',
                             role: 'user',
                             blocked: false,
                             createdAt: new Date().toISOString()
@@ -1809,6 +1845,10 @@
                 elements.loadingScreen.style.display = 'flex';
                 elements.authScreen.style.display = 'none';
                 elements.appContainer.classList.add('hidden');
+            }
+
+            function hideLoading() {
+                elements.loadingScreen.style.display = 'none';
             }
 
             // Verificar limite de voluntários no time (máximo 4 por time por evento)
@@ -3691,9 +3731,14 @@
                 });
             }
 
-            // Gráfico 4: Eventos com Times Vazios (ALERTA)
+            // Gráfico 4: Times com Menos de 5 Voluntários (ALERTA)
+            const chart4EventDetails = []; // Armazena detalhes de cada evento para o popup
+            
             async function generateChart4_EventsWithEmptyTeams() {
                 try {
+                    // Limpar detalhes anteriores
+                    chart4EventDetails.length = 0;
+                    
                     // Buscar eventos futuros
                     const futureEvents = availableDates.filter(date => {
                         const eventDate = new Date(date.value.split('|')[0]);
@@ -3701,7 +3746,7 @@
                     }).slice(0, 10); // Próximos 10 eventos
                     
                     const labels = [];
-                    const emptyTeamsCount = [];
+                    const underStaffedCount = [];
                     const backgroundColors = [];
                     
                     for (const event of futureEvents) {
@@ -3726,8 +3771,13 @@
                             }
                         });
                         
-                        // Contar times vazios
-                        const emptyCount = Object.values(teams).filter(count => count === 0).length;
+                        // Contar times com menos de 5 voluntários (0 a 4)
+                        const underStaffed = Object.values(teams).filter(count => count < 5).length;
+                        
+                        // Pular eventos com todos os times com 5 ou mais voluntários
+                        if (underStaffed === 0) {
+                            continue;
+                        }
                         
                         // Formatação da label
                         const dateObj = new Date(dateStr + 'T00:00:00');
@@ -3735,15 +3785,30 @@
                         const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
                         labels.push(`${day}/${month}`);
                         
-                        emptyTeamsCount.push(emptyCount);
+                        // Armazenar detalhes para o popup
+                        chart4EventDetails.push({
+                            date: `${day}/${month}`,
+                            fullDate: dateStr,
+                            eventName: eventName,
+                            teams: {
+                                'Recepção': teams.welcome,
+                                'Backstage': teams.backstage,
+                                'Estacionamento': teams.parking,
+                                'Kids': teams.kids
+                            }
+                        });
                         
-                        // Cor baseada na criticidade
-                        if (emptyCount === 0) {
-                            backgroundColors.push('rgba(34, 197, 94, 0.7)'); // Verde
-                        } else if (emptyCount <= 2) {
-                            backgroundColors.push('rgba(234, 179, 8, 0.7)'); // Amarelo
-                        } else {
-                            backgroundColors.push('rgba(239, 68, 68, 0.7)'); // Vermelho
+                        underStaffedCount.push(underStaffed);
+                        
+                        // Cor baseada na criticidade (1 a 4 times com menos de 5 voluntários)
+                        if (underStaffed === 1) {
+                            backgroundColors.push('rgba(254, 240, 138, 0.8)'); // Amarelo claro
+                        } else if (underStaffed === 2) {
+                            backgroundColors.push('rgba(234, 179, 8, 0.8)'); // Amarelo
+                        } else if (underStaffed === 3) {
+                            backgroundColors.push('rgba(249, 115, 22, 0.8)'); // Laranja
+                        } else { // underStaffed === 4
+                            backgroundColors.push('rgba(239, 68, 68, 0.8)'); // Vermelho
                         }
                     }
                     
@@ -3758,10 +3823,10 @@
                         data: {
                             labels: labels,
                             datasets: [{
-                                label: 'Times Vazios',
-                                data: emptyTeamsCount,
+                                label: 'Times com Menos de 5',
+                                data: underStaffedCount,
                                 backgroundColor: backgroundColors,
-                                borderColor: backgroundColors.map(color => color.replace('0.7', '1')),
+                                borderColor: backgroundColors.map(color => color.replace('0.8', '1')),
                                 borderWidth: 2
                             }]
                         },
@@ -3781,6 +3846,12 @@
                                         stepSize: 1
                                     }
                                 }
+                            },
+                            onClick: (event, activeElements) => {
+                                if (activeElements.length > 0) {
+                                    const index = activeElements[0].index;
+                                    showChart4Popup(index);
+                                }
                             }
                         }
                     });
@@ -3789,6 +3860,75 @@
                     console.error('❌ Erro ao gerar gráfico de times vazios:', error);
                 }
             }
+
+            // Função para mostrar popup com detalhes do evento do gráfico 4
+            function showChart4Popup(index) {
+                const eventData = chart4EventDetails[index];
+                if (!eventData) return;
+                
+                // Preencher título e data
+                document.getElementById('chart4-popup-title').textContent = eventData.eventName || 'Evento';
+                document.getElementById('chart4-popup-date').textContent = `📅 ${eventData.date}`;
+                
+                // Preencher times
+                const teamsContainer = document.getElementById('chart4-popup-teams');
+                teamsContainer.innerHTML = '';
+                
+                const teamEmojis = {
+                    'Recepção': '👋',
+                    'Backstage': '🎭',
+                    'Estacionamento': '🚗',
+                    'Kids': '👶'
+                };
+                
+                Object.entries(eventData.teams).forEach(([teamName, count]) => {
+                    const emoji = teamEmojis[teamName] || '👥';
+                    let colorClass = '';
+                    let statusText = '';
+                    
+                    if (count === 0) {
+                        colorClass = 'bg-red-50 border-red-300';
+                        statusText = 'text-red-700';
+                    } else if (count >= 1 && count <= 2) {
+                        colorClass = 'bg-orange-50 border-orange-300';
+                        statusText = 'text-orange-700';
+                    } else if (count >= 3 && count <= 4) {
+                        colorClass = 'bg-yellow-50 border-yellow-300';
+                        statusText = 'text-yellow-700';
+                    } else {
+                        colorClass = 'bg-green-50 border-green-300';
+                        statusText = 'text-green-700';
+                    }
+                    
+                    const teamDiv = document.createElement('div');
+                    teamDiv.className = `flex items-center justify-between p-3 rounded-lg border-2 ${colorClass}`;
+                    teamDiv.innerHTML = `
+                        <div class="flex items-center gap-2">
+                            <span class="text-2xl">${emoji}</span>
+                            <span class="font-semibold text-gray-800">${teamName}</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-2xl font-bold ${statusText}">${count}</span>
+                            <span class="text-xs text-gray-600 block">voluntário${count !== 1 ? 's' : ''}</span>
+                        </div>
+                    `;
+                    teamsContainer.appendChild(teamDiv);
+                });
+                
+                // Mostrar popup
+                document.getElementById('chart4-popup-overlay').classList.remove('hidden');
+            }
+            
+            // Event listeners do popup
+            document.getElementById('chart4-popup-close').addEventListener('click', () => {
+                document.getElementById('chart4-popup-overlay').classList.add('hidden');
+            });
+            
+            document.getElementById('chart4-popup-overlay').addEventListener('click', (e) => {
+                if (e.target.id === 'chart4-popup-overlay') {
+                    document.getElementById('chart4-popup-overlay').classList.add('hidden');
+                }
+            });
 
             // ===== GERENCIAMENTO DE ADMINISTRADORES =====
 
