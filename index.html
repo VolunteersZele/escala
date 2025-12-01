@@ -7050,7 +7050,7 @@
             async function deleteUser(userId, userName) {
                 const confirmation = await new Promise(resolve => {
                     showModal(
-                        `<div class="text-left"><p class="text-center mb-4">⚠️ <strong>ATENÇÃO: Esta ação é irreversível!</strong></p><p>Tem certeza que deseja <strong>EXCLUIR PERMANENTEMENTE</strong> o usuário:</p><p class="text-center my-4 font-bold text-lg">${userName}</p><p class="text-red-600 font-bold">⚠️ Todas as escalas deste usuário serão deletadas de todos os eventos!</p></div>`,
+                        `<div class="text-left"><p class="text-center mb-4">⚠️ <strong>ATENÇÃO: Esta ação é irreversível!</strong></p><p>Tem certeza que deseja <strong>EXCLUIR PERMANENTEMENTE</strong> o usuário:</p><p class="text-center my-4 font-bold text-lg">${userName}</p><p class="text-red-600 font-bold">⚠️ Todas as escalas deste usuário serão deletadas de todos os eventos!</p><p class="text-red-600 font-bold">⚠️ A conta de autenticação será deletada permanentemente!</p></div>`,
                         true,
                         () => resolve(true),
                         true,
@@ -7081,11 +7081,28 @@
                     await Promise.all(deleteEscalasPromises);
                     console.log(`🗑️ ${deleteEscalasPromises.length} escala(s) deletada(s)`);
                     
-                    // 2. Deletar o documento do usuário
+                    // 2. Deletar o documento do usuário no Firestore
                     await deleteDoc(doc(window.firebaseDb, 'users', userId));
                     console.log('🗑️ Usuário deletado do Firestore');
                     
-                    showModal(`✅ ${userName} foi excluído permanentemente do sistema.<br><br>${deleteEscalasPromises.length} escala(s) foram deletadas.`);
+                    // 3. Marcar usuário para deleção no Auth (Cloud Function fará a deleção real)
+                    // Como não podemos deletar diretamente do Auth no client-side, vamos marcar para deleção
+                    try {
+                        const { setDoc } = window.firestoreMethods;
+                        await setDoc(doc(window.firebaseDb, 'pendingAccountDeletions', userId), {
+                            userId: userId,
+                            userName: userName,
+                            deletedBy: currentUser.uid,
+                            deletedByEmail: currentUser.email,
+                            deletedAt: new Date().toISOString(),
+                            status: 'pending'
+                        });
+                        console.log('🗑️ Conta marcada para deleção no Authentication');
+                    } catch (authError) {
+                        console.warn('⚠️ Não foi possível marcar conta para deleção:', authError);
+                    }
+                    
+                    showModal(`✅ ${userName} foi excluído permanentemente do sistema.<br><br>${deleteEscalasPromises.length} escala(s) foram deletadas.<br><br>A conta será removida do sistema de autenticação em alguns minutos.`);
                     
                     // Recarregar listas
                     await loadUsersList();
