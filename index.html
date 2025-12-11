@@ -1980,28 +1980,26 @@
                                 <p class="font-bold text-gray-800 text-sm mb-2">${teamEmojis[team]} ${team.charAt(0).toUpperCase() + team.slice(1)}</p>
                                 <div class="text-xs text-gray-600 space-y-1">
                                     <p class="text-sm font-semibold text-blue-600">${stats.total}</p>
-                                    <p>Só Quinta: ${stats.thursdayOnly}</p>
-                                    <p>Só Domingo: ${stats.sundayOnly}</p>
-                                    <p>Qui e Dom: ${stats.both}</p>
+                                    <p>Só Quinta: <span class="font-semibold">${stats.thursdayOnly}</span></p>
+                                    <p>Só Domingo: <span class="font-semibold">${stats.sundayOnly}</span></p>
+                                    <p>Qui e Dom: <span class="font-semibold">${stats.both}</span></p>
                                 </div>
                             </div>
                         `;
                     }
                 });
                 
-                // Adicionar comunicação em linha própria (col-span-2)
+                // Adicionar comunicação em coluna própria (sem col-span)
                 if (comunicacaoData && comunicacaoData.total > 0) {
                     hasData = true;
                     html += `
-                        <div class="col-span-2 border-2 border-purple-300 rounded-lg p-3 bg-white hover:shadow-md transition">
+                        <div class="border-2 border-purple-300 rounded-lg p-3 bg-white hover:shadow-md transition">
                             <p class="font-bold text-gray-800 text-sm mb-2">📢 Comunicação</p>
-                            <div class="text-xs text-gray-600 space-y-1 flex justify-between">
-                                <div><p class="text-sm font-semibold text-purple-600">${comunicacaoData.total}</p></div>
-                                <div class="space-y-1 text-right">
-                                    <p>Só Quinta: ${comunicacaoData.thursdayOnly}</p>
-                                    <p>Só Domingo: ${comunicacaoData.sundayOnly}</p>
-                                    <p>Qui e Dom: ${comunicacaoData.both}</p>
-                                </div>
+                            <div class="text-xs text-gray-600 space-y-1">
+                                <p class="text-sm font-semibold text-purple-600">${comunicacaoData.total}</p>
+                                <p>Só Quinta: <span class="font-semibold">${comunicacaoData.thursdayOnly}</span></p>
+                                <p>Só Domingo: <span class="font-semibold">${comunicacaoData.sundayOnly}</span></p>
+                                <p>Qui e Dom: <span class="font-semibold">${comunicacaoData.both}</span></p>
                             </div>
                         </div>
                     `;
@@ -5830,9 +5828,11 @@
                                 <button class="admin-edit-date flex-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold py-2 px-4 rounded text-sm transition border border-blue-200" data-index="${realIndex}" data-date="${date.text}">
                                     ✏️ Editar
                                 </button>
-                                <button class="admin-delete-date flex-1 bg-red-50 hover:bg-red-100 text-red-700 font-semibold py-2 px-4 rounded text-sm transition border border-red-200" data-index="${realIndex}" data-date="${date.text}">
+                                ${isSuperAdmin ? `<button class="admin-delete-date flex-1 bg-red-50 hover:bg-red-100 text-red-700 font-semibold py-2 px-4 rounded text-sm transition border border-red-200" data-index="${realIndex}" data-date="${date.text}">
                                     🗑️ Remover
-                                </button>
+                                </button>` : `<button class="flex-1 bg-gray-100 text-gray-500 font-semibold py-2 px-4 rounded text-sm cursor-not-allowed border border-gray-300" disabled title="Apenas Super Admin pode deletar">
+                                    🔒 Remover
+                                </button>`}
                             </div>
                         </div>
                     `;
@@ -6714,6 +6714,15 @@
                     const [currentDate, currentTime, ...eventParts] = dateToEdit.value.split('|');
                     const currentEvent = eventParts.join('|'); // Nome do evento pode conter |
                     
+                    // Obter limites atuais por time
+                    const currentLimits = dateToEdit.teamLimits || {
+                        welcome: 4,
+                        backstage: 4,
+                        parking: 4,
+                        kids: 4,
+                        comunicacao: 4
+                    };
+                    
                     // Criar modal customizado para edição
                     const modalHtml = `
                         <div class="space-y-4">
@@ -6729,6 +6738,33 @@
                                 <label class="block text-sm font-semibold mb-2">📝 Novo Nome do Evento:</label>
                                 <input type="text" id="edit-event-input" value="${currentEvent}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Ex: Culto de Domingo">
                             </div>
+                            
+                            <div class="border-t border-gray-300 pt-4">
+                                <label class="block text-sm font-semibold mb-3">👥 Limite de Voluntários por Time:</label>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="text-xs text-gray-600">👋 Welcome</label>
+                                        <input type="number" id="limit-welcome" value="${currentLimits.welcome}" min="1" max="20" class="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="text-xs text-gray-600">🤝 Backstage</label>
+                                        <input type="number" id="limit-backstage" value="${currentLimits.backstage}" min="1" max="20" class="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="text-xs text-gray-600">🚗 Parking</label>
+                                        <input type="number" id="limit-parking" value="${currentLimits.parking}" min="1" max="20" class="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="text-xs text-gray-600">👶 Kids</label>
+                                        <input type="number" id="limit-kids" value="${currentLimits.kids}" min="1" max="20" class="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm">
+                                    </div>
+                                    <div class="col-span-2">
+                                        <label class="text-xs text-gray-600">📢 Comunicação</label>
+                                        <input type="number" id="limit-comunicacao" value="${currentLimits.comunicacao}" min="1" max="20" class="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm">
+                                    </div>
+                                </div>
+                            </div>
+                            
                             <p class="text-xs text-gray-500">⚠️ As escalas existentes serão mantidas e atualizadas automaticamente.</p>
                         </div>
                     `;
@@ -6741,6 +6777,15 @@
                             const newDate = document.getElementById('edit-date-input').value;
                             const newTime = document.getElementById('edit-time-input').value;
                             const newEvent = document.getElementById('edit-event-input').value.trim();
+                            
+                            // Obter novos limites
+                            const newTeamLimits = {
+                                welcome: parseInt(document.getElementById('limit-welcome').value) || 4,
+                                backstage: parseInt(document.getElementById('limit-backstage').value) || 4,
+                                parking: parseInt(document.getElementById('limit-parking').value) || 4,
+                                kids: parseInt(document.getElementById('limit-kids').value) || 4,
+                                comunicacao: parseInt(document.getElementById('limit-comunicacao').value) || 4
+                            };
                             
                             if (!newDate || !newTime) {
                                 showModal('❌ Data e horário são obrigatórios!', false, null, true);
@@ -6772,11 +6817,12 @@
                             const weekdayCapitalized = weekday.charAt(0).toUpperCase() + weekday.slice(1);
                             const newText = `${day}/${month} ${weekdayCapitalized} | ${newEvent} (chegar ${newTime})`;
                             
-                            // Atualizar no array
+                            // Atualizar no array com novos limites
                             availableDates[index] = {
                                 ...dateToEdit,
                                 value: newValue,
                                 text: newText,
+                                teamLimits: newTeamLimits,
                                 lastUpdated: new Date().toISOString(),
                                 updatedBy: currentUser?.email || 'unknown'
                             };
@@ -6831,9 +6877,16 @@
                 }
             }
 
-            // Deletar data (apenas admin) COM BACKUP
+            // Deletar data (apenas superadmin) COM BACKUP
             async function deleteDate(index) {
                 try {
+                    // Verificar se é superadmin
+                    if (!isSuperAdmin) {
+                        showModal('❌ Apenas Super Administradores podem deletar eventos.', false, null, true);
+                        console.warn('⚠️ Usuário não é super admin. Deleção bloqueada.');
+                        return;
+                    }
+                    
                     console.log('🗑️ [INICIANDO DELEÇÃO] Índice recebido:', index);
                     console.log('🗑️ Total de datas disponíveis:', availableDates.length);
                     console.log('🗑️ Array completo:', availableDates);
