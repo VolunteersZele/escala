@@ -10215,6 +10215,9 @@
             function closeCheckinModal() {
                 document.getElementById('checkin-modal').classList.add('hidden');
                 
+                // Limpar eventos atuais para permitir nova seleção
+                currentCheckinEvents = [];
+                
                 // Atualizar o gráfico de presença após fechar o modal
                 if (window.dashboardCharts && window.dashboardCharts.chart5 && window.currentDashboardEscalas) {
                     generateChart5_CheckinAttendance(window.currentDashboardEscalas);
