@@ -4184,24 +4184,13 @@
                         allEscalas.push({ id: doc.id, ...doc.data() });
                     });
 
-                    // Filtrar eventos visíveis (até 1h após início)
+                    // Filtrar eventos visíveis (até 2h após início)
                     const now = new Date();
-                    console.log('🔍 DEBUG loadUserEscalas - now:', now.toString(), '| UTC:', now.toISOString());
                     
                     const escalas = allEscalas.filter(escala => {
                         const eventDateTime = new Date(escala.date + 'T' + escala.time);
                         const eventEndTime = new Date(eventDateTime.getTime() + (2 * 60 * 60 * 1000)); // 2h após início
-                        const isVisible = eventEndTime > now;
-                        
-                        if (escala.date === '2025-12-04' && escala.time === '19:00') {
-                            console.log('🔍 DEBUG loadUserEscalas - Evento 04/12 19h:');
-                            console.log('  eventDateTime:', eventDateTime.toString(), '| UTC:', eventDateTime.toISOString());
-                            console.log('  eventEndTime:', eventEndTime.toString(), '| UTC:', eventEndTime.toISOString());
-                            console.log('  now:', now.toString());
-                            console.log('  isVisible:', isVisible);
-                        }
-                        
-                        return isVisible; // Mostra até 2h após início
+                        return eventEndTime > now; // Mostra até 2h após início
                     });
 
                     // Ordenar por data e horário (ordem crescente)
@@ -4676,33 +4665,12 @@
                     querySnapshot.forEach((doc) => {
                         escalas.push({ id: doc.id, ...doc.data() });
                     });
-
-                    console.log('🔍 DEBUG loadAllEscalas - Total de escalas carregadas do Firestore:', escalas.length);
-                    
-                    // Log de TODAS as escalas do evento 04/12 19:00 ANTES do filtro
-                    const escalas0412 = escalas.filter(e => e.date === '2025-12-04' && e.time === '19:00');
-                    console.log('🔍 DEBUG loadAllEscalas - TODAS as escalas do evento 04/12 19:00 (antes do filtro):', escalas0412.length);
-                    console.log('🔍 DEBUG loadAllEscalas - Detalhes:', escalas0412.map(e => ({
-                        nome: e.userName,
-                        team: e.team,
-                        status: e.status || 'SEM STATUS',
-                        userId: e.userId
-                    })));
                     
                     // Filtrar apenas escalas aprovadas para a visão geral
                     const approvedEscalas = escalas.filter(e => {
                         const status = e.status || 'approved'; // Default é approved se não tiver status
                         return status === 'approved';
                     });
-                    
-                    console.log('🔍 DEBUG loadAllEscalas - Escalas aprovadas:', approvedEscalas.length);
-                    console.log('🔍 DEBUG loadAllEscalas - Escalas APROVADAS do evento 04/12 19:00:', 
-                        approvedEscalas.filter(e => e.date === '2025-12-04' && e.time === '19:00').map(e => ({
-                            nome: e.userName,
-                            team: e.team,
-                            status: e.status || 'SEM STATUS'
-                        }))
-                    );
 
                     // Agrupar por data e time (apenas aprovadas)
                     const grouped = {};
@@ -4749,24 +4717,17 @@
                     const now = new Date();
                     const filteredGrouped = {};
                     
-                    console.log('🔍 DEBUG loadAllEscalas - now:', now.toString(), '| UTC:', now.toISOString());
-                    console.log('🔍 DEBUG loadAllEscalas - Total de eventos agrupados:', Object.keys(grouped).length);
-                    
                     Object.keys(grouped).forEach(key => {
                         const data = grouped[key];
                         const eventDateTime = new Date(data.date + 'T' + data.time);
                         const eventEndTime = new Date(eventDateTime.getTime() + (1 * 60 * 60 * 1000)); // 1h após início
                         const isVisible = eventEndTime > now;
                         
-                        console.log(`🔍 DEBUG loadAllEscalas - Evento ${key}: início=${eventDateTime.toString()}, fim=${eventEndTime.toString()}, now=${now.toString()}, visível=${isVisible}`);
-                        
                         // Incluir eventos até 1h após o início
                         if (isVisible) {
                             filteredGrouped[key] = data;
                         }
                     });
-
-                    console.log('🔍 DEBUG loadAllEscalas - Eventos após filtro:', Object.keys(filteredGrouped).length);
                     
                     // Armazenar apenas eventos futuros
                     allEscalasGrouped = filteredGrouped;
@@ -9892,20 +9853,37 @@
                 currentUser = user;
 
                 if (user) {
+                    // 1. Carregar dados essenciais do usuário (sequencial)
                     await checkAdminStatus(user);
-                    await loadAvailableDates(); // Carregar datas ANTES de carregar escalas
+                    
+                    // 2. Mostrar app imediatamente
                     updateUserUI(user);
                     showApp();
-                    await loadUserEscalas(); // Agora sim carregar escalas
-                    setupUserEscalasListener(); // Configurar listener em tempo real
-                    await loadAllEscalas();
-                    setupInstallButton(); // Configurar botão de instalação após login
-                    await checkOnboarding(user); // Verificar se precisa mostrar onboarding
                     
-                    // Verificar check-in de voluntários (para líderes)
+                    // 3. Carregar dados em paralelo (não bloqueia a UI)
+                    Promise.all([
+                        loadAvailableDates(),
+                        loadUserEscalas(),
+                        loadAllEscalas()
+                    ]).then(() => {
+                        console.log('✅ Dados carregados');
+                        setupUserEscalasListener(); // Configurar listener após carregar escalas
+                    }).catch(err => {
+                        console.error('❌ Erro ao carregar dados:', err);
+                    });
+                    
+                    // 4. Operações secundárias (não bloqueiam)
+                    setupInstallButton();
+                    
+                    // 5. Verificar onboarding (pode ser feito depois)
+                    setTimeout(async () => {
+                        await checkOnboarding(user);
+                    }, 500);
+                    
+                    // 6. Verificar check-in de voluntários (para líderes)
                     setTimeout(async () => {
                         await checkForCheckinEvents();
-                    }, 1500); // Delay para não conflitar com onboarding
+                    }, 1500);
                 } else {
                     showLogin();
                 }
