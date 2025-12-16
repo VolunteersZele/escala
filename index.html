@@ -11367,8 +11367,10 @@
 
                 const modification = `Transferido do time ${teamNames[currentEditingVolunteer.team]} para ${teamNames[newTeam]} pelo líder`;
 
+                // Ao mudar de time, remover função anterior (pois funções são específicas de cada time)
                 await updateDoc(escalaRef, {
                     team: newTeam,
+                    role: null,
                     leaderModification: modification,
                     leaderModificationDate: new Date().toISOString(),
                     leaderModificationBy: currentUser.uid
