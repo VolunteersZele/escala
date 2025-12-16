@@ -9539,12 +9539,15 @@
                     };
                     
                     // Atualizar time do voluntário com aviso de mudança
+                    // Limpar função anterior (role) e leaderModification ao mudar de time
                     await updateDoc(escalaRef, {
                         team: selectedTeam,
+                        role: null,
                         updatedAt: new Date().toISOString(),
                         transferredBy: currentUser.email,
                         transferredAt: new Date().toISOString(),
-                        teamChangeNotice: `Foi necessário mudar você do time ${teamNames[currentTransferData.currentTeam]} para ${teamNames[selectedTeam]} para uma melhor organização dos times.`
+                        teamChangeNotice: `Foi necessário mudar você do time ${teamNames[currentTransferData.currentTeam]} para ${teamNames[selectedTeam]} para uma melhor organização dos times.`,
+                        leaderModification: null
                     });
                     
                     document.getElementById('transfer-volunteer-modal').classList.remove('show');
