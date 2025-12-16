@@ -410,11 +410,11 @@
                     </div>
                     <div class="flex items-center gap-4">
                         <div class="text-right hidden sm:block">
-                            <p class="text-sm font-semibold" id="user-name">Usuário</p>
-                            <p class="text-xs opacity-90" id="user-email">email@example.com</p>
+                            <p class="text-sm font-semibold" id="user-name"></p>
+                            <p class="text-xs opacity-90" id="user-email"></p>
                         </div>
-                        <button id="user-photo-btn" class="relative cursor-pointer" style="background: none; border: none; padding: 0;">
-                            <img id="user-photo" src="" alt="Foto" class="w-10 h-10 rounded-full border-2 border-white">
+                        <button id="user-photo-btn" class="relative cursor-pointer" style="background: none; border: none; padding: 0; display: none;">
+                            <img id="user-photo" src="" alt="Foto" class="w-10 h-10 rounded-full border-2 border-white" style="display: none;">
                             <span id="header-badge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center" style="box-shadow: 0 2px 4px rgba(0,0,0,0.3);">0</span>
                         </button>
                         <button id="menu-btn" class="zele-btn p-2 rounded-lg">
@@ -4015,6 +4015,8 @@
                     elements.userName.textContent = displayName + badge;
                     elements.userEmail.textContent = user.email;
                     elements.userPhoto.src = user.photoURL || defaultPhoto;
+                    elements.userPhoto.style.display = '';
+                    document.getElementById('user-photo-btn').style.display = '';
                     elements.menuUserName.textContent = displayName + badge;
                     elements.menuUserEmail.textContent = user.email;
                     elements.menuUserPhoto.src = user.photoURL || defaultPhoto;
